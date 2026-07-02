@@ -31,7 +31,7 @@ namespace VendorGateway.Controllers.Order
             throw new NotImplementedException();
         }
 
-        [HttpPost("{id:guid}/execute")]
+        [HttpPost("execute/{id:guid}")]
         public async Task<IActionResult> ExecuteOrder(Guid id)
         {
             throw new NotImplementedException();
