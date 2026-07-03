@@ -7,32 +7,32 @@ namespace VendorGateway.Controllers.Order
     [Route("api/[controller]")]
     public class OrdersController : ControllerBase
     {
+        [HttpGet("{id:int}")]
+        public async Task<IActionResult> GetOrder(int id)
+        {
+            throw new NotImplementedException();
+        }
+
         [HttpPost]
         public async Task<IActionResult> CreateOrder(CreateOrderRequest request)
         {
             throw new NotImplementedException();
         }
 
-        [HttpGet("{id:guid}")]
-        public async Task<IActionResult> GetOrder(Guid id)
+        [HttpPut("{id:int}")]
+        public async Task<IActionResult> UpdateOrder(int id, UpdateOrderRequest request)
         {
             throw new NotImplementedException();
         }
 
-        [HttpPut("{id:guid}")]
-        public async Task<IActionResult> UpdateOrder(Guid id, UpdateOrderRequest request)
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> DeleteOrder(int id)
         {
             throw new NotImplementedException();
         }
 
-        [HttpDelete("{id:guid}")]
-        public async Task<IActionResult> DeleteOrder(Guid id)
-        {
-            throw new NotImplementedException();
-        }
-
-        [HttpPost("execute/{id:guid}")]
-        public async Task<IActionResult> ExecuteOrder(Guid id)
+        [HttpPost("execute/{id:int}")]
+        public async Task<IActionResult> ExecuteOrder(int id)
         {
             throw new NotImplementedException();
         }

@@ -1,10 +1,5 @@
-﻿using Microsoft.Extensions.Options;
-using System;
-using System.Collections.Generic;
-using System.Text;
-using VendorGateway.Configuration;
+﻿using VendorGateway.Configuration;
 using VendorGateway.Enums;
-using YamlDotNet.Serialization;
 
 namespace VendorGateway.Tests.Configuration
 {
@@ -31,7 +26,7 @@ namespace VendorGateway.Tests.Configuration
                 ]
             };
 
-            var options = Options.Create(settings);
+            var options = new OptionsMonitorAdapter<VendorSettings>(settings);
             return new VendorsConfiguration(options);
         }
 
@@ -42,7 +37,7 @@ namespace VendorGateway.Tests.Configuration
                 VendorDetails = []
             };
 
-            var options = Options.Create(settings);
+            var options = new OptionsMonitorAdapter<VendorSettings>(settings);
             return new VendorsConfiguration(options);
         }
     }
