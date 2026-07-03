@@ -2,6 +2,7 @@
 {
     public enum Vendors
     {
-        FakeStore
+        FakeStore,
+        FutureStore
     }
 }
