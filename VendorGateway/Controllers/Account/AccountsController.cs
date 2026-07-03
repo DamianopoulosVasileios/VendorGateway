@@ -1,34 +1,40 @@
 using Microsoft.AspNetCore.Mvc;
 using VendorGateway.Contracts.Account.Requests;
+using VendorGateway.Interfaces;
 
 namespace VendorGateway.Controllers.Account
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class AccountsController : ControllerBase
+    public class AccountsController(IUsersApiClient users) : ControllerBase
     {
+
+        [HttpGet("{id:int}")]
+        public async Task<IActionResult> GetAccount(int id)
+        {
+            var results = await users.GetAsync(id, CancellationToken.None);
+            return Ok(results);
+        }
+
         [HttpPost]
         public async Task<IActionResult> CreateAccount(CreateAccountRequest request)
         {
-            throw new NotImplementedException();
+            var results = await users.CreateAsync(request, CancellationToken.None);
+            return Ok(results);
         }
 
-        [HttpGet("{id:guid}")]
-        public async Task<IActionResult> GetAccount(Guid id)
+        [HttpPut("{id:int}")]
+        public async Task<IActionResult> UpdateAccount(int id, UpdateAccountRequest request)
         {
-            throw new NotImplementedException();
+            var results = await users.UpdateAsync(request, id, CancellationToken.None);
+            return Ok(results);
         }
 
-        [HttpPut("{id:guid}")]
-        public async Task<IActionResult> UpdateAccount(Guid id, UpdateAccountRequest request)
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> DeleteAccount(int id)
         {
-            throw new NotImplementedException();
-        }
-
-        [HttpDelete("{id:guid}")]
-        public async Task<IActionResult> DeleteAccount(Guid id)
-        {
-            throw new NotImplementedException();
+            var results = await users.DeleteAsync(id, CancellationToken.None);
+            return Ok(results);
         }
     }
 }

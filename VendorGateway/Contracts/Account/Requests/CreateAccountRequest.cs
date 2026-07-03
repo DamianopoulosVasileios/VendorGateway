@@ -1,7 +1,8 @@
 ﻿namespace VendorGateway.Contracts.Account.Requests
 {
     public sealed record CreateAccountRequest(
-        string FirstName,
-        string LastName,
-        string Email);
+        int id,
+        string username,
+        string email,
+        string password);
 }

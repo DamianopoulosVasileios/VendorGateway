@@ -1,7 +1,7 @@
 ﻿namespace VendorGateway.Contracts.Order.Responses
 {
     public sealed record OrderResponse(
-        Guid Id,
+        int id,
         string FirstName,
         string LastName,
         string Email,

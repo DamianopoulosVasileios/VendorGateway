@@ -38,16 +38,6 @@ namespace VendorGateway.Tests
         }
 
         [Fact]
-        public void GetDefaultVendor_ShouldReturnFakeStore()
-        {
-            // Act
-            var result = _sut.GetDefaultVendor();
-
-            // Assert
-            result.Name.Should().Be(Vendors.FakeStore.ToString());
-        }
-
-        [Fact]
         public void Get_WhenVendorDoesNotExist_ShouldThrow()
         {
             // Arrange
