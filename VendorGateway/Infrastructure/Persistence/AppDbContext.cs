@@ -1,11 +1,18 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using VendorGateway.Infrastructure.Entities;
+using VendorGateway.Infrastructure.Interfaces;
 
 namespace VendorGateway.Infrastructure.Persistence
 {
     public class AppDbContext : DbContext
     {
-        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+        private readonly TimeProvider _timeProvider;
+
+        public AppDbContext(DbContextOptions<AppDbContext> options, TimeProvider timeProvider)
+        : base(options)
+        {
+            _timeProvider = timeProvider;
+        }
 
         public DbSet<Product> Products => Set<Product>();
         public DbSet<Account> Accounts => Set<Account>();
@@ -38,6 +45,33 @@ namespace VendorGateway.Infrastructure.Persistence
                 .HasOne(oi => oi.Product)
                 .WithMany(p => p.OrderItems)
                 .HasForeignKey(oi => oi.ProductId);
+        }
+
+        public override async Task<int> SaveChangesAsync(CancellationToken ct = default)
+        {
+            ApplyAuditInfo();
+            return await base.SaveChangesAsync(ct);
+        }
+
+        private void ApplyAuditInfo()
+        {
+            var now = _timeProvider.GetUtcNow();
+
+            foreach (var entry in ChangeTracker.Entries<IAuditable>())
+            {
+                switch (entry.State)
+                {
+                    case EntityState.Added:
+                        entry.Entity.CreatedAt = now;
+                        entry.Entity.UpdatedAt = now;
+                        break;
+
+                    case EntityState.Modified:
+                        entry.Property(x => x.CreatedAt).IsModified = false;
+                        entry.Entity.UpdatedAt = now;
+                        break;
+                }
+            }
         }
     }
 }

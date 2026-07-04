@@ -43,6 +43,7 @@ foreach (var vendor in settings.VendorDetails.DistinctBy(x => x.Name))
     });
 }
 
+builder.Services.AddExceptionClassifierInfrastructure();
 builder.Services.AddInfrastructure(builder.Configuration);
 
 var mode = builder.Configuration["AppSettings:Mode"];
