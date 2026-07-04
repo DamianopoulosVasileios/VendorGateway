@@ -1,31 +1,27 @@
-﻿namespace VendorGateway.Common
+﻿using VendorGateway.Interfaces;
+
+namespace VendorGateway.Common
 {
-    public static class FakeStoreApis
+    public sealed class ApiResponseReader : IApiResponseReader
     {
-        public static async Task<T> Response<T>(HttpResponseMessage response, CancellationToken ct) where T : class
+        public async Task<T> ReadAsync<T>(HttpResponseMessage response, CancellationToken ct)
         {
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<T>(cancellationToken: ct) ?? throw new InvalidOperationException("Response was empty.");
+
+            return await response.Content.ReadFromJsonAsync<T>(cancellationToken: ct)
+                   ?? throw new InvalidOperationException("Response was empty.");
+        }
+        public HttpResponseMessage EnsureSuccessStatusCode(HttpResponseMessage response)
+        {
+            return response.EnsureSuccessStatusCode();
         }
     }
+
     public static class UrlResolver
     {
         public static string Resolve(string template, object value)
         {
             return template.Replace("{id}", value.ToString());
         }
-    }
-
-
-    public static class FakeStoreDataGenerator
-    {
-        public static string GenerateUsername(object value)
-                    => $"user_{(value?.ToString() ?? "default").Split('@')[0]}_{Guid.NewGuid().ToString("N")[..6]}";
-
-        public static string GeneratePassword()
-            => "Temp#12345!" + Guid.NewGuid().ToString("N")[..4];
-
-        public static string GenerateEmail(object value)
-            => $"{value}@fakestore.com";
     }
 }

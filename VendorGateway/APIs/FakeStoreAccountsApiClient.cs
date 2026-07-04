@@ -9,13 +9,15 @@ using VendorGateway.Mappers;
 
 namespace VendorGateway.APIs
 {
-    public sealed class FakeStoreAccountsApiClient : VendorApiClientBase, IUsersApiClient
+    public sealed class FakeStoreAccountsApiClient : VendorApiClientBase, IAccountsApiClient
     {
         protected override Vendors Vendor => Vendors.FakeStore;
+        private readonly IApiResponseReader _apiResponseReader;
 
-        public FakeStoreAccountsApiClient(IHttpClientFactory factory, VendorsConfiguration configuration)
+        public FakeStoreAccountsApiClient(IApiResponseReader apiResponseReader, IHttpClientFactory factory, VendorsConfiguration configuration)
             : base(factory, configuration)
         {
+            _apiResponseReader = apiResponseReader;
         }
 
         public async Task<ApiGetAccountResponse> GetAsync(int id, CancellationToken ct)
@@ -23,7 +25,7 @@ namespace VendorGateway.APIs
             var url = UrlResolver.Resolve(Config.Users.Get, id);
 
             var call = await Client.GetAsync(url, ct);
-            var response = await FakeStoreApis.Response<FakeStoreGetAccountResponse>(call, ct);
+            var response = await _apiResponseReader.ReadAsync<FakeStoreGetAccountResponse>(call, ct);
 
             return ApiAndFakeStoreAccountMappers.ToApi(response);
         }
@@ -34,7 +36,7 @@ namespace VendorGateway.APIs
 
             var url = Config.Users.Create;
             var call = await Client.PostAsJsonAsync(url, request, ct);
-            var response = await FakeStoreApis.Response<FakeStoreCreateAccountResponse>(call, ct);
+            var response = await _apiResponseReader.ReadAsync<FakeStoreCreateAccountResponse>(call, ct);
 
             return ApiAndFakeStoreAccountMappers.ToApi(response);
         }
@@ -45,7 +47,7 @@ namespace VendorGateway.APIs
 
             var url = UrlResolver.Resolve(Config.Users.Update, id);
             var call = await Client.PutAsJsonAsync(url, request, ct);
-            var response = await FakeStoreApis.Response<FakeStoreUpdateAccountResponse>(call, ct);
+            var response = await _apiResponseReader.ReadAsync<FakeStoreUpdateAccountResponse>(call, ct);
 
             return ApiAndFakeStoreAccountMappers.ToApi(response);
         }
@@ -55,7 +57,7 @@ namespace VendorGateway.APIs
             var url = UrlResolver.Resolve(Config.Users.Delete, id);
 
             var response = await Client.DeleteAsync(url, ct);
-            var result = response.EnsureSuccessStatusCode();
+            var result = _apiResponseReader.EnsureSuccessStatusCode(response);
 
             return result;
         }

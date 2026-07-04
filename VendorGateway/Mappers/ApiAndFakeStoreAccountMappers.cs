@@ -1,5 +1,4 @@
-﻿using VendorGateway.Common;
-using VendorGateway.Contracts.Account.Requests;
+﻿using VendorGateway.Contracts.Account.Requests;
 using VendorGateway.Contracts.Account.Responses;
 using VendorGateway.Infrastructure.Contracts.Account.Requests;
 using VendorGateway.Infrastructure.Contracts.Account.Responses;
@@ -23,11 +22,11 @@ namespace VendorGateway.Mappers
 
         public static FakeStoreCreateAccountRequest ToFakeStore(ApiCreateAccountRequest request)
         {
-            return new FakeStoreCreateAccountRequest(request.id, FakeStoreDataGenerator.GenerateUsername(request.email), request.email, FakeStoreDataGenerator.GeneratePassword());
+            return new FakeStoreCreateAccountRequest(request.id, request.email);
         }
         public static FakeStoreUpdateAccountRequest ToFakeStore(ApiUpdateAccountRequest request)
         {
-            return new FakeStoreUpdateAccountRequest(request.id, FakeStoreDataGenerator.GenerateUsername(request.id), FakeStoreDataGenerator.GenerateEmail(request.id), FakeStoreDataGenerator.GeneratePassword());
+            return new FakeStoreUpdateAccountRequest(request.id);
         }
     }
 }

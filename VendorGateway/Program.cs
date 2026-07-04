@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using VendorGateway.API;
 using VendorGateway.APIs;
+using VendorGateway.Common;
 using VendorGateway.Configuration;
 using VendorGateway.Enums;
 using VendorGateway.Infrastructure;
@@ -22,11 +23,13 @@ builder.Services.AddOpenApiDocument(config =>
 builder.Services.Configure<VendorSettings>(builder.Configuration.GetSection(nameof(VendorSettings)));
 builder.Services.AddSingleton<VendorsConfiguration>();
 
+builder.Services.AddScoped<IApiResponseReader, ApiResponseReader>();
+
 var defaultVendor = builder.Configuration["DefaultVendor"];
 if (defaultVendor == Vendors.FakeStore.ToString())
 {
     builder.Services.AddScoped<IProductsApiClient, FakeStoreProductsApiClient>();
-    builder.Services.AddScoped<IUsersApiClient, FakeStoreAccountsApiClient>();
+    builder.Services.AddScoped<IAccountsApiClient, FakeStoreAccountsApiClient>();
 }
 
 var serviceProvider = builder.Services.BuildServiceProvider();

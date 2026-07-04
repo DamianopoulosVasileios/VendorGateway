@@ -19,7 +19,7 @@ namespace VendorGateway.Controllers.Order
             throw new NotImplementedException();
         }
 
-        [HttpPatch("{id:int}")]
+        [HttpPut("{id:int}")]
         public async Task<IActionResult> UpdateOrder(int id, ApiUpdateOrderRequest request)
         {
             throw new NotImplementedException();

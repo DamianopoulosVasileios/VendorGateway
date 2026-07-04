@@ -1,5 +1,4 @@
 ﻿using VendorGateway.APIs;
-using VendorGateway.Common;
 using VendorGateway.Configuration;
 using VendorGateway.Contracts.Product.Responses;
 using VendorGateway.Enums;
@@ -12,9 +11,11 @@ namespace VendorGateway.API
     public sealed class FakeStoreProductsApiClient : VendorApiClientBase, IProductsApiClient
     {
         protected override Vendors Vendor => Vendors.FakeStore;
+        private readonly IApiResponseReader _apiResponseReader;
 
-        public FakeStoreProductsApiClient(IHttpClientFactory factory, VendorsConfiguration configuration) : base(factory, configuration)
+        public FakeStoreProductsApiClient(IApiResponseReader apiResponseReader, IHttpClientFactory factory, VendorsConfiguration configuration) : base(factory, configuration)
         {
+            _apiResponseReader = apiResponseReader;
         }
 
         public async Task<IEnumerable<ApiGetProductsResponse>> GetAllAsync(CancellationToken ct)
@@ -22,7 +23,7 @@ namespace VendorGateway.API
             var url = Config.Products.GetAll;
 
             var call = await Client.GetAsync(url, ct);
-            var response = await FakeStoreApis.Response<IEnumerable<FakeStoreGetProductsResponse>>(call, ct);
+            var response = await _apiResponseReader.ReadAsync<IEnumerable<FakeStoreGetProductsResponse>>(call, ct);
             return ApiAndFakeStoreProductMapper.ToApi(response);
         }
     }

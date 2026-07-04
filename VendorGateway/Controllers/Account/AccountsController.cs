@@ -1,20 +1,19 @@
 using Microsoft.AspNetCore.Mvc;
 using VendorGateway.Contracts.Account.Requests;
-using VendorGateway.Contracts.Account.Responses;
 using VendorGateway.Interfaces;
 
 namespace VendorGateway.Controllers.Account
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class AccountsController(IUsersApiClient users) : ControllerBase
+    public class AccountsController(IAccountsApiClient users) : ControllerBase
     {
 
         [HttpGet("{id:int}")]
-        public async Task<ApiGetAccountResponse> GetAccount(int id)
+        public async Task<IActionResult> GetAccount(int id)
         {
             var results = await users.GetAsync(id, CancellationToken.None);
-            return null;
+            return Ok(results);
         }
 
         [HttpPost]
@@ -24,7 +23,7 @@ namespace VendorGateway.Controllers.Account
             return Ok(results);
         }
 
-        [HttpPatch("{id:int}")]
+        [HttpPut("{id:int}")]
         public async Task<IActionResult> UpdateAccount(int id, ApiUpdateAccountRequest request)
         {
             var results = await users.UpdateAsync(request, id, CancellationToken.None);
@@ -35,7 +34,7 @@ namespace VendorGateway.Controllers.Account
         public async Task<IActionResult> DeleteAccount(int id)
         {
             var results = await users.DeleteAsync(id, CancellationToken.None);
-            return Ok(results);
+            return StatusCode((int)results.StatusCode);
         }
     }
 }
