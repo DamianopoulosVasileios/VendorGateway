@@ -14,13 +14,13 @@ namespace VendorGateway.Controllers.Order
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateOrder(CreateOrderRequest request)
+        public async Task<IActionResult> CreateOrder(ApiCreateOrderRequest request)
         {
             throw new NotImplementedException();
         }
 
-        [HttpPut("{id:int}")]
-        public async Task<IActionResult> UpdateOrder(int id, UpdateOrderRequest request)
+        [HttpPatch("{id:int}")]
+        public async Task<IActionResult> UpdateOrder(int id, ApiUpdateOrderRequest request)
         {
             throw new NotImplementedException();
         }

@@ -1,11 +1,11 @@
-﻿namespace VendorGateway.Contracts.Product.Responses
+﻿namespace VendorGateway.Infrastructure.Contracts.Product.Responses
 {
-    public sealed record GetProductsResponse(
+    public sealed record FakeStoreGetProductsResponse(
         int id,
         string Title,
         float Price,
         string Description,
         string Category,
         string Image
-        );
+    );
 }

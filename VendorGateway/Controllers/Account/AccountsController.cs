@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using VendorGateway.Contracts.Account.Requests;
+using VendorGateway.Contracts.Account.Responses;
 using VendorGateway.Interfaces;
 
 namespace VendorGateway.Controllers.Account
@@ -10,21 +11,21 @@ namespace VendorGateway.Controllers.Account
     {
 
         [HttpGet("{id:int}")]
-        public async Task<IActionResult> GetAccount(int id)
+        public async Task<ApiGetAccountResponse> GetAccount(int id)
         {
             var results = await users.GetAsync(id, CancellationToken.None);
-            return Ok(results);
+            return null;
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateAccount(CreateAccountRequest request)
+        public async Task<IActionResult> CreateAccount(ApiCreateAccountRequest request)
         {
             var results = await users.CreateAsync(request, CancellationToken.None);
             return Ok(results);
         }
 
-        [HttpPut("{id:int}")]
-        public async Task<IActionResult> UpdateAccount(int id, UpdateAccountRequest request)
+        [HttpPatch("{id:int}")]
+        public async Task<IActionResult> UpdateAccount(int id, ApiUpdateAccountRequest request)
         {
             var results = await users.UpdateAsync(request, id, CancellationToken.None);
             return Ok(results);

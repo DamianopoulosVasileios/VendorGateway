@@ -4,6 +4,6 @@ namespace VendorGateway.Interfaces
 {
     public interface IProductsApiClient
     {
-        Task<IEnumerable<GetProductsResponse>> GetAllAsync(CancellationToken ct);
+        Task<IEnumerable<ApiGetProductsResponse>> GetAllAsync(CancellationToken ct);
     }
 }
