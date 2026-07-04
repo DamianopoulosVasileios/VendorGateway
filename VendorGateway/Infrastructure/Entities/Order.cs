@@ -1,6 +1,8 @@
-﻿namespace VendorGateway.Infrastructure.Entities
+﻿using VendorGateway.Infrastructure.Interfaces;
+
+namespace VendorGateway.Infrastructure.Entities
 {
-    public class Order
+    public class Order : IAuditable
     {
         public int Id { get; set; }
         public int AccountId { get; set; }
@@ -8,5 +10,8 @@
 
         // NAVIGATION
         public Account Account { get; set; } = null!;
+        
+        public DateTimeOffset CreatedAt { get; set; }
+        public DateTimeOffset UpdatedAt { get; set; }
     }
 }
