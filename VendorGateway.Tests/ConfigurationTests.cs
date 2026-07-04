@@ -5,7 +5,6 @@ using VendorGateway.Tests.Configuration;
 
 namespace VendorGateway.Tests
 {
-
     public class VendorsConfigurationTests
     {
         private readonly VendorsConfiguration _sut;

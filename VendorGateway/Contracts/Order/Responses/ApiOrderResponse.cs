@@ -1,6 +1,6 @@
 ﻿namespace VendorGateway.Contracts.Order.Responses
 {
-    public sealed record OrderResponse(
+    public sealed record ApiOrderResponse(
         int id,
         string FirstName,
         string LastName,

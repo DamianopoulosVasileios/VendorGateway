@@ -6,7 +6,7 @@ namespace VendorGateway.Controllers.Account
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class AccountsController(IUsersApiClient users) : ControllerBase
+    public class AccountsController(IAccountsApiClient users) : ControllerBase
     {
 
         [HttpGet("{id:int}")]
@@ -17,14 +17,14 @@ namespace VendorGateway.Controllers.Account
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateAccount(CreateAccountRequest request)
+        public async Task<IActionResult> CreateAccount(ApiCreateAccountRequest request)
         {
             var results = await users.CreateAsync(request, CancellationToken.None);
             return Ok(results);
         }
 
         [HttpPut("{id:int}")]
-        public async Task<IActionResult> UpdateAccount(int id, UpdateAccountRequest request)
+        public async Task<IActionResult> UpdateAccount(int id, ApiUpdateAccountRequest request)
         {
             var results = await users.UpdateAsync(request, id, CancellationToken.None);
             return Ok(results);
@@ -34,7 +34,7 @@ namespace VendorGateway.Controllers.Account
         public async Task<IActionResult> DeleteAccount(int id)
         {
             var results = await users.DeleteAsync(id, CancellationToken.None);
-            return Ok(results);
+            return StatusCode((int)results.StatusCode);
         }
     }
 }

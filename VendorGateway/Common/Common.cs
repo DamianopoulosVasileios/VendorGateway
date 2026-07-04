@@ -1,13 +1,22 @@
-﻿namespace VendorGateway.Common
+﻿using VendorGateway.Interfaces;
+
+namespace VendorGateway.Common
 {
-    public static class Apis
+    public sealed class ApiResponseReader : IApiResponseReader
     {
-        public static async Task<T> Response<T>(HttpResponseMessage response, CancellationToken ct) where T : class
+        public async Task<T> ReadAsync<T>(HttpResponseMessage response, CancellationToken ct)
         {
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<T>(cancellationToken: ct) ?? throw new InvalidOperationException("Response was empty.");
+
+            return await response.Content.ReadFromJsonAsync<T>(cancellationToken: ct)
+                   ?? throw new InvalidOperationException("Response was empty.");
+        }
+        public HttpResponseMessage EnsureSuccessStatusCode(HttpResponseMessage response)
+        {
+            return response.EnsureSuccessStatusCode();
         }
     }
+
     public static class UrlResolver
     {
         public static string Resolve(string template, object value)
