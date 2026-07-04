@@ -1,8 +1,11 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using VendorGateway.API;
 using VendorGateway.APIs;
 using VendorGateway.Configuration;
 using VendorGateway.Enums;
+using VendorGateway.Infrastructure;
+using VendorGateway.Infrastructure.Persistence;
 using VendorGateway.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,16 +22,14 @@ builder.Services.AddOpenApiDocument(config =>
 builder.Services.Configure<VendorSettings>(builder.Configuration.GetSection(nameof(VendorSettings)));
 builder.Services.AddSingleton<VendorsConfiguration>();
 
-var serviceProvider = builder.Services.BuildServiceProvider();
-
 var defaultVendor = builder.Configuration["DefaultVendor"];
-
 if (defaultVendor == Vendors.FakeStore.ToString())
 {
     builder.Services.AddScoped<IProductsApiClient, FakeStoreProductsApiClient>();
     builder.Services.AddScoped<IUsersApiClient, FakeStoreAccountsApiClient>();
 }
 
+var serviceProvider = builder.Services.BuildServiceProvider();
 var settings = serviceProvider.GetRequiredService<IOptions<VendorSettings>>().Value;
 foreach (var vendor in settings.VendorDetails.DistinctBy(x => x.Name))
 {
@@ -39,7 +40,20 @@ foreach (var vendor in settings.VendorDetails.DistinctBy(x => x.Name))
     });
 }
 
+builder.Services.AddInfrastructure(builder.Configuration);
+
+var mode = builder.Configuration["AppSettings:Mode"];
+var dbPath = DbPathResolver.GetPath(mode);
+
+builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite($"Data Source={dbPath}"));
+
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+}
 
 if (app.Environment.IsDevelopment())
 {
