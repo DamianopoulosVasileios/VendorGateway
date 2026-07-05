@@ -6,13 +6,9 @@ using VendorGateway.APIs;
 using VendorGateway.Common;
 using VendorGateway.Configuration;
 using VendorGateway.Enums;
-using VendorGateway.Infrastructure;
-using VendorGateway.Infrastructure.Interfaces;
-using VendorGateway.Infrastructure.Persistence;
-using VendorGateway.Infrastructure.Repositories.Account;
-using VendorGateway.Infrastructure.Repositories.Order;
-using VendorGateway.Infrastructure.Repositories.Product;
 using VendorGateway.Interfaces;
+using VendorGateway.Infrastructure.Dependencies;
+using VendorGateway.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,101 +21,124 @@ builder.Services.AddOpenApiDocument(config =>
     config.Title = "Vendor Gateway API";
 });
 
-builder.Services.AddSingleton<VendorsConfiguration>();
-builder.Services.AddSingleton(TimeProvider.System);
+Configuration(builder);
 
-builder.Services.AddScoped<IApiResponseReader, ApiResponseReader>();
-builder.Services.AddScoped<IAccountQueries, AccountQueries>();
-builder.Services.AddScoped<IProductCommands, ProductCommands>();
-builder.Services.AddScoped<IOrderCommands, OrderCommands>();
-builder.Services.AddScoped<IOrderQueries, OrderQueries>();
-builder.Services.AddScoped<IApiResponseReader, ApiResponseReader>();
-builder.Services.AddScoped<IAccountCommands, AccountCommands>();
-builder.Services.AddScoped<IProductQueries, ProductQueries>();
-builder.Services.AddScoped<IAccountQueries, AccountQueries>();
-builder.Services.AddScoped<IProductCommands, ProductCommands>();
-builder.Services.AddScoped<IOrderCommands, OrderCommands>();
-builder.Services.AddScoped<IOrderQueries, OrderQueries>();
-builder.Services.AddScoped<IApiResponseReader, ApiResponseReader>();
-builder.Services.AddScoped<IAccountCommands, AccountCommands>();
-builder.Services.AddScoped<IProductQueries, ProductQueries>();
+RegisterServices(builder);
 
-builder.Services.Configure<VendorSettings>(builder.Configuration.GetSection(nameof(VendorSettings)));
-var defaultVendor = builder.Configuration["DefaultVendor"];
-if (defaultVendor == Vendors.FakeStore.ToString())
-{
-    builder.Services.AddScoped<IProductsApiClient, FakeStoreProductsApiClient>();
-    builder.Services.AddScoped<IAccountsApiClient, FakeStoreAccountsApiClient>();
-}
+SetupHttpClient(builder);
 
-var serviceProvider = builder.Services.BuildServiceProvider();
-var settings = serviceProvider.GetRequiredService<IOptions<VendorSettings>>().Value;
-foreach (var vendor in settings.VendorDetails.DistinctBy(x => x.Name))
-{
-    builder.Services.AddHttpClient(vendor.Name, client =>
-    {
-        client.BaseAddress = new Uri(vendor.ApiUrl);
-        client.Timeout = TimeSpan.FromSeconds(vendor.TimeoutSeconds);
-    });
-}
+RegisterServicesFromOtherProjects(builder);
 
-builder.Services.AddExceptionClassifierInfrastructure();
-builder.Services.AddInfrastructure(builder.Configuration);
-
-var mode = builder.Configuration["AppSettings:Mode"];
-var dbPath = DbPathResolver.GetPath(mode);
-
-builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite($"Data Source={dbPath}"));
-
-
-builder.Host.UseDefaultServiceProvider(options =>
-{
-    options.ValidateOnBuild = true;
-    options.ValidateScopes = true;
-});
+EnableServiceResolveOnStartUp(builder);
 
 var app = builder.Build();
 
-app.UseExceptionHandler(appError =>
-{
-    appError.Run(async context =>
-    {
-        var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+UseGlobalExceptionHandler(app);
 
-        context.Response.ContentType = "application/json";
+Migrations(app);
 
-        context.Response.StatusCode = exception switch
-        {
-            KeyNotFoundException => StatusCodes.Status404NotFound,
-            ArgumentException => StatusCodes.Status400BadRequest,
-            _ => StatusCodes.Status500InternalServerError
-        };
-
-        await context.Response.WriteAsJsonAsync(new
-        {
-            message = exception?.Message ?? "Unexpected error"
-        });
-    });
-});
-
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
-}
-
-if (app.Environment.IsDevelopment())
-{
-    app.UseOpenApi();
-    app.UseSwaggerUi(settings =>
-    {
-        settings.EnableTryItOut = true;
-    });
-}
+EnableSwagger(app);
 
 app.UseHttpsRedirection();
+
 app.UseAuthorization();
 
 app.MapControllers();
 
 app.Run();
+
+
+
+static void RegisterServices(WebApplicationBuilder builder)
+{
+    builder.Services.AddSingleton<VendorsConfiguration>();
+    builder.Services.AddSingleton(TimeProvider.System);
+    builder.Services.AddScoped<IApiResponseReader, ApiResponseReader>();
+    var defaultVendor = builder.Configuration["DefaultVendor"];
+    if (defaultVendor == Vendors.FakeStore.ToString())
+    {
+        builder.Services.AddScoped<IProductsApiClient, FakeStoreProductsApiClient>();
+        builder.Services.AddScoped<IAccountsApiClient, FakeStoreAccountsApiClient>();
+    }
+}
+
+static void Configuration(WebApplicationBuilder builder)
+{
+    builder.Services.Configure<VendorSettings>(builder.Configuration.GetSection(nameof(VendorSettings)));
+}
+
+static void SetupHttpClient(WebApplicationBuilder builder)
+{
+    var serviceProvider = builder.Services.BuildServiceProvider();
+    var settings = serviceProvider.GetRequiredService<IOptions<VendorSettings>>().Value;
+    foreach (var vendor in settings.VendorDetails.DistinctBy(x => x.Name))
+    {
+        builder.Services.AddHttpClient(vendor.Name, client =>
+        {
+            client.BaseAddress = new Uri(vendor.ApiUrl);
+            client.Timeout = TimeSpan.FromSeconds(vendor.TimeoutSeconds);
+        });
+    }
+}
+
+static void RegisterServicesFromOtherProjects(WebApplicationBuilder builder)
+{
+    var connString = builder.Configuration.GetConnectionString("SQLiteConnectionString");
+    var mode = builder.Configuration["AppSettings:Mode"];
+    builder.Services.AddServicesFromInfrastructure(mode, connString);
+}
+
+static void EnableServiceResolveOnStartUp(WebApplicationBuilder builder)
+{
+    builder.Host.UseDefaultServiceProvider(options =>
+    {
+        options.ValidateOnBuild = true;
+        options.ValidateScopes = true;
+    });
+}
+
+static void UseGlobalExceptionHandler(WebApplication app)
+{
+    app.UseExceptionHandler(appError =>
+    {
+        appError.Run(async context =>
+        {
+            var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+
+            context.Response.ContentType = "application/json";
+
+            context.Response.StatusCode = exception switch
+            {
+                KeyNotFoundException => StatusCodes.Status404NotFound,
+                ArgumentException => StatusCodes.Status400BadRequest,
+                _ => StatusCodes.Status500InternalServerError
+            };
+
+            await context.Response.WriteAsJsonAsync(new
+            {
+                message = exception?.Message ?? "Unexpected error"
+            });
+        });
+    });
+}
+
+static void Migrations(WebApplication app)
+{
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.Migrate();
+    }
+}
+
+static void EnableSwagger(WebApplication app)
+{
+    if (app.Environment.IsDevelopment())
+    {
+        app.UseOpenApi();
+        app.UseSwaggerUi(settings =>
+        {
+            settings.EnableTryItOut = true;
+        });
+    }
+}

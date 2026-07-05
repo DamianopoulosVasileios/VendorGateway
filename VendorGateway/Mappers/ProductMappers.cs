@@ -4,9 +4,9 @@ namespace VendorGateway.Mappers
 {
     public static class ProductMappers
     {
-        public static IEnumerable<Infrastructure.Entities.Product> Map(IEnumerable<ApiGetProductsResponse> productsFromStore)
+        public static IEnumerable<Application.Entities.Product> Map(IEnumerable<ApiGetProductsResponse> productsFromStore)
         {
-            return productsFromStore.Select(product => new Infrastructure.Entities.Product
+            return productsFromStore.Select(product => new Application.Entities.Product
             {
                 Id = product.id,
                 Title = product.Title,

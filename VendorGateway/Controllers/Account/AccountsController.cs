@@ -51,7 +51,7 @@ namespace VendorGateway.Controllers.Account
             return StatusCode((int)results.StatusCode);
         }
 
-        private async Task<IReadOnlyList<Infrastructure.Entities.Account>> CheckAccountExists(int accountId, CancellationToken ct)
+        private async Task<IReadOnlyList<Application.Entities.Account>> CheckAccountExists(int accountId, CancellationToken ct)
         {
             var account = await accountQueries.GetByIdsAsync([accountId], ct);
             if (account == null || account.Count == 0)

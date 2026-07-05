@@ -1,0 +1,83 @@
+﻿using Microsoft.EntityFrameworkCore;
+using VendorGateway.Infrastructure.Interfaces;
+
+namespace VendorGateway.Infrastructure.Persistence
+{
+    public class AppDbContext : DbContext
+    {
+        private readonly TimeProvider _timeProvider;
+
+        public AppDbContext(DbContextOptions<AppDbContext> options, TimeProvider timeProvider)
+        : base(options)
+        {
+            _timeProvider = timeProvider;
+        }
+
+        public DbSet<Application.Entities.Product> Products => Set<Application.Entities.Product>();
+        public DbSet<Application.Entities.Account> Accounts => Set<Application.Entities.Account>();
+        public DbSet<Application.Entities.Order> Orders => Set<Application.Entities.Order>();
+        public DbSet<Application.Entities.OrderItem> OrderItems => Set<Application.Entities.OrderItem>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<Application.Entities.Account>()
+                .HasKey(x => x.Id);
+
+            modelBuilder.Entity<Application.Entities.Order>()
+                .HasKey(x => x.Id);
+            modelBuilder.Entity<Application.Entities.Order>()
+                .Property(o => o.Id)
+                .ValueGeneratedOnAdd();
+
+            modelBuilder.Entity<Application.Entities.Product>()
+                .HasKey(x => x.Id);
+
+            modelBuilder.Entity<Application.Entities.OrderItem>()
+                .HasKey(x => x.Id);
+
+            modelBuilder.Entity<Application.Entities.Order>()
+                .HasOne(o => o.Account)
+                .WithMany(u => u.Orders)
+                .HasForeignKey(o => o.AccountId);
+
+            modelBuilder.Entity<Application.Entities.OrderItem>()
+                .HasOne(oi => oi.Order)
+                .WithMany(o => o.Items)
+                .HasForeignKey(oi => oi.OrderId);
+
+            modelBuilder.Entity<Application.Entities.OrderItem>()
+                .HasOne(oi => oi.Product)
+                .WithMany()
+                .HasForeignKey(oi => oi.ProductId);
+        }
+
+        public override async Task<int> SaveChangesAsync(CancellationToken ct = default)
+        {
+            ApplyAuditInfo();
+            return await base.SaveChangesAsync(ct);
+        }
+
+        private void ApplyAuditInfo()
+        {
+            var now = _timeProvider.GetUtcNow();
+
+            foreach (var entry in ChangeTracker.Entries<IAuditable>())
+            {
+                switch (entry.State)
+                {
+                    case EntityState.Added:
+                        entry.Entity.CreatedAt = now;
+                        entry.Entity.UpdatedAt = now;
+                        break;
+
+                    case EntityState.Modified:
+                        entry.Property(x => x.CreatedAt).IsModified = false;
+                        entry.Entity.UpdatedAt = now;
+                        break;
+                }
+            }
+        }
+    }
+}

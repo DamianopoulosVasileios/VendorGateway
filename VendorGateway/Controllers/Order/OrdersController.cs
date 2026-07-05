@@ -1,8 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using VendorGateway.Application.Dtos;
+using VendorGateway.Application.Entities;
+using VendorGateway.Application.Enums;
 using VendorGateway.Contracts.Order.Requests;
 using VendorGateway.Enums;
-using VendorGateway.Infrastructure.Entities;
 using VendorGateway.Infrastructure.Interfaces;
 
 namespace VendorGateway.Controllers.Order
