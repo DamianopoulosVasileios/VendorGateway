@@ -1,4 +1,5 @@
 ﻿using VendorGateway.APIs;
+using VendorGateway.Common;
 using VendorGateway.Configuration;
 using VendorGateway.Contracts.Product.Responses;
 using VendorGateway.Enums;
@@ -25,6 +26,16 @@ namespace VendorGateway.API
             var call = await Client.GetAsync(url, ct);
             var response = await _apiResponseReader.ReadAsync<IEnumerable<FakeStoreGetProductsResponse>>(call, ct);
             return ApiAndFakeStoreProductMapper.ToApi(response);
+        }
+
+        public async Task<HttpResponseMessage> DeleteByIdAsync(int id, CancellationToken ct)
+        {
+            var url = UrlResolver.Resolve(Config.Products.Delete, id);
+
+            var response = await Client.DeleteAsync(url, ct);
+            var result = _apiResponseReader.EnsureSuccessStatusCode(response);
+
+            return result;
         }
     }
 }

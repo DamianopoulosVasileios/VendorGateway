@@ -2,6 +2,6 @@
 {
     public interface IAccountQueries
     {
-        Task<List<Entities.Account>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken ct);
+        Task<IReadOnlyList<Entities.Account>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken ct);
     }
 }

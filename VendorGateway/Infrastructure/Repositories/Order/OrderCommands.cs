@@ -1,5 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using VendorGateway.Infrastructure.Entities;
 using VendorGateway.Infrastructure.Interfaces;
 using VendorGateway.Infrastructure.Persistence;
 
@@ -16,16 +15,19 @@ namespace VendorGateway.Infrastructure.Repositories.Order
             _dbExceptionClassifier = dbExceptionClassifier;
         }
 
-        public async Task CreateAsync(int id, int accountId, List<OrderItem> orderItems, CancellationToken ct)
+        public async Task CreateAsync(int accountId, List<Application.Dtos.OrderDetails.OrderItem> orderItem, CancellationToken ct)
         {
+            var items = orderItem.Select(Mappers.OrderMapper.ToDto).ToList();
+            var orderToPersist = Entities.Order.Create(accountId, items);
+
             try
             {
-                await _db.Orders.AddAsync(new Entities.Order { Id = id, AccountId = accountId, Items = orderItems }, ct);
+                await _db.Orders.AddAsync(orderToPersist, ct);
                 await _db.SaveChangesAsync(ct);
             }
             catch (DbUpdateException ex) when (_dbExceptionClassifier.IsUniqueConstraintViolation(ex))
             {
-                throw new InvalidOperationException($"order with id {id} already exists.", ex);
+                throw new InvalidOperationException($"Order was already placed.", ex);
             }
             catch (DbUpdateException ex)
             {
@@ -33,17 +35,21 @@ namespace VendorGateway.Infrastructure.Repositories.Order
             }
         }
 
-        public async Task UpdateAsync(Entities.Order order, CancellationToken ct)
+        public async Task UpdateAsync(int accountId, Application.Dtos.OrderDetails.Order order, CancellationToken ct)
         {
-            ArgumentNullException.ThrowIfNull(order);
-
-            var entity = await _db.Orders
-                .FirstOrDefaultAsync(x => x.Id == order.Id, ct)
-                ?? throw new KeyNotFoundException($"order with id {order.Id} was not found.");
+            var items = order.Items.Select(Mappers.OrderMapper.ToDto).ToList();
+            var newOrder = Entities.Order.CreateWithOrderId(order.Id, accountId, items);
 
             try
             {
-                //TODO add
+                var entity = await _db.Orders
+                    .Include(x => x.Items)
+                    .FirstOrDefaultAsync(x => x.Id == newOrder.Id, ct);
+
+                if (entity is null)
+                    throw new KeyNotFoundException($"OrderId {order.Id} was not found for accountId {accountId}.");
+
+                entity.UpdatePropertiesForOrderUpdate(newOrder);
 
                 await _db.SaveChangesAsync(ct);
             }
@@ -53,20 +59,70 @@ namespace VendorGateway.Infrastructure.Repositories.Order
             }
         }
 
-        public async Task DeleteAsync(int id, CancellationToken ct)
+        public async Task DeleteByIdAsync(int accountId, int id, CancellationToken ct)
         {
             try
             {
                 var deleted = await _db.Orders
-                    .Where(x => x.Id == id)
+                    .Where(x => x.AccountId == accountId && x.Id == id && x.Status != Enums.OrderStatus.Submitted)
                     .ExecuteDeleteAsync(ct);
 
-                if (deleted == 0)
-                    throw new KeyNotFoundException($"Order with id {id} was not found.");
+                if (deleted > 0)
+                    return;
+
+                var exists = await _db.Orders
+                    .AnyAsync(x => x.AccountId == accountId && x.Id == id, ct);
+
+                if (!exists)
+                    throw new KeyNotFoundException($"OrderId {id} was not found for accountId {accountId}.");
+
+                throw new InvalidOperationException(
+                    $"OrderId {id} is already submitted for accountId {accountId}. Cannot delete submitted orders.");
             }
             catch (DbUpdateException ex)
             {
                 throw new InvalidOperationException($"Failed to delete order {id}.", ex);
+            }
+        }
+
+        public async Task DeleteAsync(int accountId, CancellationToken ct)
+        {
+            try
+            {
+                var deleted = await _db.Orders
+                    .Where(x => x.AccountId == accountId)
+                    .ExecuteDeleteAsync(ct);
+
+                if (deleted == 0)
+                    throw new KeyNotFoundException($"Orders was not found for accountId {accountId}.");
+            }
+            catch (DbUpdateException ex)
+            {
+                throw new InvalidOperationException($"Failed to delete orders.", ex);
+            }
+        }
+
+        public async Task ExecuteAsync(int accountId, int id, CancellationToken ct)
+        {
+            try
+            {
+                var entity = await _db.Orders
+                    .FirstOrDefaultAsync(x => x.AccountId == accountId && x.Id == id);
+
+                if (entity is null)
+                    throw new KeyNotFoundException($"OrderId {id} was not found for accountId {accountId}.");
+
+                if (entity.Status == Enums.OrderStatus.Submitted)
+                {
+                    throw new KeyNotFoundException($"OrderId {id} status is already submitted for accountId {accountId}.");
+                }
+                entity.ExecuteOrder();
+
+                await _db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex)
+            {
+                throw new InvalidOperationException($"Failed to delete orders.", ex);
             }
         }
     }

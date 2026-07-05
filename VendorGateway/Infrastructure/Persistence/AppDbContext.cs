@@ -17,18 +17,25 @@ namespace VendorGateway.Infrastructure.Persistence
         public DbSet<Product> Products => Set<Product>();
         public DbSet<Account> Accounts => Set<Account>();
         public DbSet<Order> Orders => Set<Order>();
+        public DbSet<OrderItem> OrderItems => Set<OrderItem>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            modelBuilder.Entity<Product>()
-                .HasKey(x => x.Id);
-
             modelBuilder.Entity<Account>()
                 .HasKey(x => x.Id);
 
             modelBuilder.Entity<Order>()
+                .HasKey(x => x.Id);
+            modelBuilder.Entity<Order>()
+                .Property(o => o.Id)
+                .ValueGeneratedOnAdd();
+
+            modelBuilder.Entity<Product>()
+                .HasKey(x => x.Id);
+
+            modelBuilder.Entity<OrderItem>()
                 .HasKey(x => x.Id);
 
             modelBuilder.Entity<Order>()
@@ -43,7 +50,7 @@ namespace VendorGateway.Infrastructure.Persistence
 
             modelBuilder.Entity<OrderItem>()
                 .HasOne(oi => oi.Product)
-                .WithMany(p => p.OrderItems)
+                .WithMany()
                 .HasForeignKey(oi => oi.ProductId);
         }
 

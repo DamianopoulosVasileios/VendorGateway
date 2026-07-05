@@ -22,5 +22,13 @@ namespace VendorGateway.Infrastructure.Repositories.Product
 
             return data;
         }
+        public async Task<List<Entities.Product>> GetAsync(CancellationToken ct)
+        {
+            var data = await _db.Products
+                .AsNoTracking()
+                .ToListAsync(ct);
+
+            return data;
+        }
     }
 }

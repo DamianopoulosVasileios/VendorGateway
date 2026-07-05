@@ -1,7 +1,11 @@
-﻿namespace VendorGateway.Infrastructure.Interfaces
+﻿using VendorGateway.Application.Dtos;
+
+namespace VendorGateway.Infrastructure.Interfaces
 {
     public interface IOrderQueries
     {
-        Task<List<Entities.Order>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken ct);
+        Task<List<OrderDetails.Order>> GetByIdsAsync(int accountId, IEnumerable<int> ids, CancellationToken ct);
+        Task<List<OrderDetails.Order>> GetAsync(int accountId, CancellationToken ct);
+        Task<List<OrderDetails.OrderItem>> GetOrderItemsAsync(IEnumerable<int> ids, CancellationToken ct);
     }
 }
