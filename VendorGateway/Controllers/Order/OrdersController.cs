@@ -41,7 +41,7 @@ namespace VendorGateway.Controllers.Order
 
             var isCetegoryQuantityDiscountApplicable = request.Items
                 .Where(x => productsWithCategoryIdApplicableToPotentialDiscount.Contains(x.ProductId))
-                .Sum(x => x.Quantity) >= 2;
+                .Sum(x => x.Quantity) >= 5;
 
             var orderItems = request.Items
                 .Select((item, index) =>
@@ -85,11 +85,31 @@ namespace VendorGateway.Controllers.Order
                 throw new InvalidOperationException("Cannot update an executed order.");
             }
 
+            var productByIds = await CheckIfRequestProductsExist(request, ct);
+
+            var productsWithCategoryIdApplicableToPotentialDiscount = productByIds.Values
+                .Where(p => p.Category.Equals("women's clothing", StringComparison.OrdinalIgnoreCase))
+                .Select(x => x.Id)
+                .Distinct();
+
+            var isCetegoryQuantityDiscountApplicable = request.Items
+                .Where(x => productsWithCategoryIdApplicableToPotentialDiscount.Contains(x.ProductId))
+                .Sum(x => x.Quantity) >= 5;
+
             foreach (var item in order.Items)
             {
+                if (!productByIds.TryGetValue(item.ProductId, out var product))
+                    throw new KeyNotFoundException($"Product {item.ProductId} not found");
+
                 var newItem = request.Items.FirstOrDefault(x => x.ProductId == item.ProductId);
                 if (newItem != null)
                     item.Quantity = newItem.Quantity;
+
+                if (isCetegoryQuantityDiscountApplicable &&
+                    product.Category.Equals("jewelery", StringComparison.OrdinalIgnoreCase))
+                {
+                    item.UnitPrice *= 0.9f;
+                }
             }
 
             await orderCommands.UpdateAsync(request.AccountId, order, ct);
@@ -165,6 +185,21 @@ namespace VendorGateway.Controllers.Order
                 throw new KeyNotFoundException($"Account with id {accountId} not found.");
         }
         private async Task<Dictionary<int, Product>> CheckIfRequestProductsExist(ApiCreateOrderRequest request, CancellationToken ct)
+        {
+            var products = await productQueries.GetByIdsAsync(request.Items.Select(x => x.ProductId), ct);
+            var productsById = products.ToDictionary(p => p.Id);
+
+            var missingProductIds = request.Items
+                .Select(i => i.ProductId)
+                .Except(productsById.Keys)
+                .ToList();
+
+            if (missingProductIds.Count > 0)
+                throw new KeyNotFoundException($"The following product ids were not found: {string.Join(", ", missingProductIds)}.");
+
+            return productsById;
+        }
+        private async Task<Dictionary<int, Product>> CheckIfRequestProductsExist(ApiUpdateOrderRequest request, CancellationToken ct)
         {
             var products = await productQueries.GetByIdsAsync(request.Items.Select(x => x.ProductId), ct);
             var productsById = products.ToDictionary(p => p.Id);
