@@ -95,7 +95,7 @@ namespace VendorGateway.Tests
 
             using var cts = new CancellationTokenSource();
 
-            await _sutAccounts.GetAsync(id, cts.Token);
+            await _sutAccounts.GetByIdAsync(id, cts.Token);
 
             capturedRequest.Should().NotBeNull();
             capturedRequest!.Method.Should().Be(HttpMethod.Get);
@@ -119,7 +119,7 @@ namespace VendorGateway.Tests
 
             using var cts = new CancellationTokenSource();
 
-            var result = await _sutAccounts.GetAsync(id, cts.Token);
+            var result = await _sutAccounts.GetByIdAsync(id, cts.Token);
 
             result.Should().BeEquivalentTo(expected);
         }
@@ -136,7 +136,7 @@ namespace VendorGateway.Tests
                 .Setup(r => r.ReadAsync<FakeStoreGetAccountResponse>(httpResponse, It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new HttpRequestException("boom"));
 
-            var act = () => _sutAccounts.GetAsync(id, CancellationToken.None);
+            var act = () => _sutAccounts.GetByIdAsync(id, CancellationToken.None);
 
             await act.Should().ThrowAsync<HttpRequestException>();
         }

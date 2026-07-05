@@ -13,10 +13,15 @@ namespace VendorGateway.Infrastructure.Repositories.Account
             _db = db;
         }
 
-        public async Task<List<Entities.Account>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken ct)
+        public async Task<IReadOnlyList<Entities.Account>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken ct)
         {
+            var idList = ids as IList<int> ?? ids.ToList();
+
+            if (idList.Count == 0)
+                return [];
+
             var data = await _db.Accounts
-                .Where(p => ids.Contains(p.Id))
+                .Where(p => idList.Contains(p.Id))
                 .AsNoTracking()
                 .ToListAsync(ct);
 

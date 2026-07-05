@@ -18,6 +18,7 @@
     public class ProductsEndpoints
     {
         public string GetAll { get; set; } = string.Empty;
+        public string Delete { get; set; } = string.Empty;
     }
 
     public class UsersEndpoints

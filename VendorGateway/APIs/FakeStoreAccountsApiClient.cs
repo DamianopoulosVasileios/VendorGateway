@@ -20,7 +20,7 @@ namespace VendorGateway.APIs
             _apiResponseReader = apiResponseReader;
         }
 
-        public async Task<ApiGetAccountResponse> GetAsync(int id, CancellationToken ct)
+        public async Task<ApiGetAccountResponse> GetByIdAsync(int id, CancellationToken ct)
         {
             var url = UrlResolver.Resolve(Config.Users.Get, id);
 

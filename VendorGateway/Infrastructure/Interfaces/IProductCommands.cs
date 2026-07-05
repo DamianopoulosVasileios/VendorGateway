@@ -2,6 +2,7 @@
 {
     public interface IProductCommands
     {
-        Task AddRangeAsync(IEnumerable<Entities.Product> products, CancellationToken ct);
+        Task<bool> AddRangeAsync(IEnumerable<Entities.Product> products, CancellationToken ct);
+        Task DeleteAsync(CancellationToken ct);
     }
 }

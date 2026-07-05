@@ -15,14 +15,14 @@ namespace VendorGateway.Infrastructure.Repositories.Product
             _dbExceptionClassifier = dbExceptionClassifier;
         }
 
-        public async Task AddRangeAsync(IEnumerable<Entities.Product> products, CancellationToken ct)
+        public async Task<bool> AddRangeAsync(IEnumerable<Entities.Product> products, CancellationToken ct)
         {
             ArgumentNullException.ThrowIfNull(products);
 
             var productList = products as IList<Entities.Product> ?? products.ToList();
 
             if (productList.Count == 0)
-                return;
+                return false;
 
             if (productList.Any(p => p is null))
                 throw new ArgumentException("The batch must not contain null products.", nameof(products));
@@ -42,10 +42,24 @@ namespace VendorGateway.Infrastructure.Repositories.Product
             {
                 await _db.Products.AddRangeAsync(productList, ct);
                 await _db.SaveChangesAsync(ct);
+                return true;
             }
             catch (DbUpdateException ex) when (_dbExceptionClassifier.IsUniqueConstraintViolation(ex))
             {
                 throw new InvalidOperationException("One or more products in the batch already exist.", ex);
+            }
+            catch (DbUpdateException ex)
+            {
+                throw new InvalidOperationException("Failed to persist products to database.", ex);
+            }
+        }
+
+        public async Task DeleteAsync(CancellationToken ct)
+        {
+            try
+            {
+                _db.Products.RemoveRange(_db.Products);
+                await _db.SaveChangesAsync(ct);
             }
             catch (DbUpdateException ex)
             {
