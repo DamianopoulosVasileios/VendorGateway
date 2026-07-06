@@ -1,4 +1,4 @@
-﻿namespace VendorGateway.Configuration
+﻿namespace VendorGateway.Infrastructure.APIs.Configuration
 {
     public class VendorSettings
     {

@@ -1,4 +1,4 @@
-﻿namespace VendorGateway.Contracts.Product.Responses
+﻿namespace VendorGateway.Infrastructure.Apis.Contracts.Responses
 {
     public sealed record FakeStoreGetProductsResponse(
         int id,

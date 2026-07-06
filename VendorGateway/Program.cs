@@ -1,15 +1,15 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using VendorGateway.API;
-using VendorGateway.APIs;
 using VendorGateway.Application.DependencyInjection;
 using VendorGateway.Application.Interfaces.ApiClient;
-using VendorGateway.Common;
-using VendorGateway.Configuration;
-using VendorGateway.Enums;
 using VendorGateway.Filters;
+using VendorGateway.Infrastructure.API;
+using VendorGateway.Infrastructure.APIs;
+using VendorGateway.Infrastructure.APIs.Configuration;
 using VendorGateway.Infrastructure.Dependencies;
+using VendorGateway.Infrastructure.Enums;
+using VendorGateway.Infrastructure.Helpers;
 using VendorGateway.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);

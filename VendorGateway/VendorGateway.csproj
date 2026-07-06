@@ -30,4 +30,9 @@
     <ProjectReference Include="..\VendorGateway.Infrastructure\VendorGateway.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Helpers\" />
+    <Folder Include="Mappers\" />
+  </ItemGroup>
+
 </Project>

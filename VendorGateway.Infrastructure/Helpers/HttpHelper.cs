@@ -1,6 +1,7 @@
-﻿using VendorGateway.Application.Interfaces.ApiClient;
+﻿using System.Net.Http.Json;
+using VendorGateway.Application.Interfaces.ApiClient;
 
-namespace VendorGateway.Common
+namespace VendorGateway.Infrastructure.Helpers
 {
     public sealed class ApiResponseReader : IApiResponseReader
     {

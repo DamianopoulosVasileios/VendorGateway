@@ -1,6 +1,6 @@
 ﻿using VendorGateway.Application.Dtos;
 
-namespace VendorGateway.Mappers
+namespace VendorGateway.Infrastructure.Mappers
 {
     public static class ProductMappers
     {

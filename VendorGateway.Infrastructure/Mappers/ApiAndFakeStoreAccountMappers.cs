@@ -1,8 +1,8 @@
 ﻿using VendorGateway.Application.Dtos;
-using VendorGateway.Contracts.Account.Requests;
-using VendorGateway.Contracts.Account.Responses;
+using VendorGateway.Infrastructure.Apis.Contracts.Requests;
+using VendorGateway.Infrastructure.Apis.Contracts.Responses;
 
-namespace VendorGateway.Mappers
+namespace VendorGateway.Infrastructure.Mappers
 {
     public static class AccountMappers
     {

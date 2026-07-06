@@ -1,4 +1,4 @@
-﻿namespace VendorGateway.Enums
+﻿namespace VendorGateway.Infrastructure.Enums
 {
     public enum Vendors
     {

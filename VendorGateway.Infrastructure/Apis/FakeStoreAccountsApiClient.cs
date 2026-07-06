@@ -1,12 +1,15 @@
 ﻿using VendorGateway.Application.Dtos;
 using VendorGateway.Application.Interfaces.ApiClient;
-using VendorGateway.Common;
-using VendorGateway.Configuration;
-using VendorGateway.Contracts.Account.Responses;
-using VendorGateway.Enums;
-using VendorGateway.Mappers;
+using VendorGateway.Application.Enums;
+using VendorGateway.Application.Mappers;
+using VendorGateway.Infrastructure.Enums;
+using VendorGateway.Infrastructure.APIs.Configuration;
+using VendorGateway.Infrastructure.Helpers;
+using VendorGateway.Infrastructure.Apis.Contracts.Responses;
+using System.Net.Http.Json;
+using VendorGateway.Infrastructure.Mappers;
 
-namespace VendorGateway.APIs
+namespace VendorGateway.Infrastructure.APIs
 {
     public sealed class FakeStoreAccountsApiClient : VendorApiClientBase, IAccountsApiClient
     {

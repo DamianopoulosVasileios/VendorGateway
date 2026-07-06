@@ -1,20 +1,21 @@
-﻿using VendorGateway.APIs;
-using VendorGateway.Application.Dtos;
+﻿using VendorGateway.Application.Dtos;
 using VendorGateway.Application.Interfaces.ApiClient;
-using VendorGateway.Common;
-using VendorGateway.Configuration;
-using VendorGateway.Contracts.Product.Responses;
-using VendorGateway.Enums;
-using VendorGateway.Mappers;
+using VendorGateway.Infrastructure.Apis.Contracts.Responses;
+using VendorGateway.Infrastructure.APIs;
+using VendorGateway.Infrastructure.APIs.Configuration;
+using VendorGateway.Infrastructure.Enums;
+using VendorGateway.Infrastructure.Helpers;
+using VendorGateway.Infrastructure.Mappers;
 
-namespace VendorGateway.API
+namespace VendorGateway.Infrastructure.API
 {
     public sealed class FakeStoreProductsApiClient : VendorApiClientBase, IProductsApiClient
     {
         protected override Vendors Vendor => Vendors.FakeStore;
         private readonly IApiResponseReader _apiResponseReader;
 
-        public FakeStoreProductsApiClient(IApiResponseReader apiResponseReader, IHttpClientFactory factory, VendorsConfiguration configuration) : base(factory, configuration)
+        public FakeStoreProductsApiClient(IApiResponseReader apiResponseReader, IHttpClientFactory factory, VendorsConfiguration configuration) 
+            : base(factory, configuration)
         {
             _apiResponseReader = apiResponseReader;
         }

@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Options;
-using VendorGateway.Enums;
+using VendorGateway.Infrastructure.Enums;
 
-namespace VendorGateway.Configuration
+namespace VendorGateway.Infrastructure.APIs.Configuration
 {
     public class VendorsConfiguration
     {

@@ -6,16 +6,15 @@ using Moq;
 using Moq.Protected;
 using System.Net;
 using System.Net.Http.Json;
-using VendorGateway.API;
-using VendorGateway.APIs;
 using VendorGateway.Application.Dtos;
 using VendorGateway.Application.Interfaces.ApiClient;
-using VendorGateway.Configuration;
-using VendorGateway.Contracts.Account.Requests;
-using VendorGateway.Contracts.Account.Responses;
-using VendorGateway.Contracts.Product.Responses;
-using VendorGateway.Enums;
-using VendorGateway.Mappers;
+using VendorGateway.Infrastructure.API;
+using VendorGateway.Infrastructure.Apis.Contracts.Requests;
+using VendorGateway.Infrastructure.Apis.Contracts.Responses;
+using VendorGateway.Infrastructure.APIs;
+using VendorGateway.Infrastructure.APIs.Configuration;
+using VendorGateway.Infrastructure.Enums;
+using VendorGateway.Infrastructure.Mappers;
 
 namespace VendorGateway.Tests
 {
