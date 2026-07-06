@@ -1,10 +1,10 @@
-﻿namespace VendorGateway.Infrastructure.Mappers
+﻿namespace VendorGateway.Application.Mappers
 {
     public static class OrderMapper
     {
-        public static Application.Dtos.OrderDetails.Order ToDto(this Application.Entities.Order order)
+        public static Dtos.OrderDetails.Order ToDto(this Entities.Order order)
         {
-            return new Application.Dtos.OrderDetails.Order
+            return new Dtos.OrderDetails.Order
             {
                 IdempotencyKey = order.IdempotencyKey,
                 Id = order.Id,
@@ -22,9 +22,9 @@
             };
         }
 
-        public static Application.Dtos.OrderDetails.OrderItem ToDto(this Application.Entities.OrderItem item)
+        public static Dtos.OrderDetails.OrderItem ToDto(this Entities.OrderItem item)
         {
-            return new Application.Dtos.OrderDetails.OrderItem
+            return new Dtos.OrderDetails.OrderItem
             {
                 Id = item.Id,
                 ItemId = item.ItemId,
@@ -35,10 +35,10 @@
             };
         }
 
-        public static Application.Entities.Order ToDto(this Application.Dtos.OrderDetails.Order order)
+        public static Entities.Order ToDto(this Dtos.OrderDetails.Order order)
         {
             var items = order.Items
-                .Select(i => new Application.Entities.OrderItem
+                .Select(i => new Entities.OrderItem
                 {
                     Id = i.Id,
                     ItemId = i.ItemId,
@@ -49,12 +49,12 @@
                 })
                 .ToList() ?? [];
 
-            var result = Application.Entities.Order.CreateWithOrderId(order.Id, order.AccountId, items);
+            var result = Entities.Order.CreateWithOrderId(order.Id, order.AccountId, items);
             return result;
         }
-        public static Application.Entities.OrderItem ToDto(this Application.Dtos.OrderDetails.OrderItem item)
+        public static Entities.OrderItem ToDto(this Dtos.OrderDetails.OrderItem item)
         {
-            return new Application.Entities.OrderItem
+            return new Entities.OrderItem
             {
                 Id = item.Id,
                 ItemId = item.ItemId,

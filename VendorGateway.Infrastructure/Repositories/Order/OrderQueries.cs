@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using VendorGateway.Application.Dtos;
-using VendorGateway.Infrastructure.Interfaces;
-using VendorGateway.Infrastructure.Mappers;
+using VendorGateway.Application.Interfaces.CommandsQueries;
+using VendorGateway.Application.Mappers;
 using VendorGateway.Infrastructure.Persistence;
 
 namespace VendorGateway.Infrastructure.Repositories.Order

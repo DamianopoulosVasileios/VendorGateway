@@ -3,13 +3,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using VendorGateway.API;
 using VendorGateway.APIs;
+using VendorGateway.Application.DependencyInjection;
+using VendorGateway.Application.Interfaces.ApiClient;
 using VendorGateway.Common;
 using VendorGateway.Configuration;
 using VendorGateway.Enums;
 using VendorGateway.Filters;
 using VendorGateway.Infrastructure.Dependencies;
 using VendorGateway.Infrastructure.Persistence;
-using VendorGateway.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -88,6 +89,7 @@ static void RegisterServicesFromOtherProjects(WebApplicationBuilder builder)
     var connString = builder.Configuration.GetConnectionString("SQLiteConnectionString");
     var mode = builder.Configuration["AppSettings:Mode"];
     builder.Services.AddServicesFromInfrastructure(mode, connString);
+    builder.Services.AddServicesFromApplication();
 }
 
 static void EnableServiceResolveOnStartUp(WebApplicationBuilder builder)

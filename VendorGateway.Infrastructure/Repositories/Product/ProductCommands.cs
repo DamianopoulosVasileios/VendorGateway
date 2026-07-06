@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using VendorGateway.Application.Interfaces.CommandsQueries;
 using VendorGateway.Infrastructure.Interfaces;
 using VendorGateway.Infrastructure.Persistence;
 

@@ -1,4 +1,4 @@
-﻿using VendorGateway.Interfaces;
+﻿using VendorGateway.Application.Interfaces.ApiClient;
 
 namespace VendorGateway.Common
 {

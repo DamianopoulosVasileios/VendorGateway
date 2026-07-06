@@ -2,9 +2,9 @@
 using VendorGateway.Application.Dtos;
 using VendorGateway.Application.Entities;
 using VendorGateway.Application.Enums;
+using VendorGateway.Application.Interfaces.CommandsQueries;
 using VendorGateway.Contracts.Order.Requests;
 using VendorGateway.Filters;
-using VendorGateway.Infrastructure.Interfaces;
 
 namespace VendorGateway.Controllers.Order
 {

@@ -1,9 +1,10 @@
 ﻿using VendorGateway.APIs;
+using VendorGateway.Application.Dtos;
+using VendorGateway.Application.Interfaces.ApiClient;
 using VendorGateway.Common;
 using VendorGateway.Configuration;
 using VendorGateway.Contracts.Product.Responses;
 using VendorGateway.Enums;
-using VendorGateway.Interfaces;
 using VendorGateway.Mappers;
 
 namespace VendorGateway.API
@@ -18,13 +19,13 @@ namespace VendorGateway.API
             _apiResponseReader = apiResponseReader;
         }
 
-        public async Task<IEnumerable<ApiGetProductsResponse>> GetAllAsync(CancellationToken ct)
+        public async Task<IEnumerable<GetProductsResponse>> GetAllAsync(CancellationToken ct)
         {
             var url = Config.Products.GetAll;
 
             var call = await Client.GetAsync(url, ct);
             var response = await _apiResponseReader.ReadAsync<IEnumerable<FakeStoreGetProductsResponse>>(call, ct);
-            return ApiAndFakeStoreProductMapper.ToApi(response);
+            return ProductMapper.ToApi(response);
         }
 
         public async Task<HttpResponseMessage> DeleteByIdAsync(int id, CancellationToken ct)

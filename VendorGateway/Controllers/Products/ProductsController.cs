@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using VendorGateway.Infrastructure.Interfaces;
-using VendorGateway.Interfaces;
+using VendorGateway.Application.Interfaces.ApiClient;
+using VendorGateway.Application.Interfaces.CommandsQueries;
 using VendorGateway.Mappers;
 
 namespace VendorGateway.Controllers.Products

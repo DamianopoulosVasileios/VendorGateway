@@ -8,12 +8,13 @@ using System.Net;
 using System.Net.Http.Json;
 using VendorGateway.API;
 using VendorGateway.APIs;
+using VendorGateway.Application.Dtos;
+using VendorGateway.Application.Interfaces.ApiClient;
 using VendorGateway.Configuration;
 using VendorGateway.Contracts.Account.Requests;
 using VendorGateway.Contracts.Account.Responses;
 using VendorGateway.Contracts.Product.Responses;
 using VendorGateway.Enums;
-using VendorGateway.Interfaces;
 using VendorGateway.Mappers;
 
 namespace VendorGateway.Tests
@@ -108,7 +109,7 @@ namespace VendorGateway.Tests
             var httpResponse = new HttpResponseMessage(HttpStatusCode.OK);
             var fakeStoreResponse = _fixture.Create<FakeStoreGetAccountResponse>();
 
-            var expected = ApiAndFakeStoreAccountMappers.ToApi(fakeStoreResponse);
+            var expected = AccountMappers.ToApi(fakeStoreResponse);
 
             SetupHandler(httpResponse);
 
@@ -147,11 +148,11 @@ namespace VendorGateway.Tests
         [Fact]
         public async Task CreateAsync_SendsPostRequest_ToCreateUrl_WithMappedBody()
         {
-            var apiRequest = _fixture.Create<ApiCreateAccountRequest>();
+            var apiRequest = _fixture.Create<CreateAccountRequest>();
             var fakeStoreResponse = _fixture.Create<FakeStoreCreateAccountResponse>();
             var httpResponse = new HttpResponseMessage(HttpStatusCode.OK);
 
-            var expectedBody = ApiAndFakeStoreAccountMappers.ToFakeStore(apiRequest);
+            var expectedBody = AccountMappers.ToFakeStore(apiRequest);
 
             HttpRequestMessage capturedRequest = null;
             SetupHandler(httpResponse, req => capturedRequest = req);
@@ -173,11 +174,11 @@ namespace VendorGateway.Tests
         [Fact]
         public async Task CreateAsync_ReturnsMappedResponse_FromReader()
         {
-            var apiRequest = _fixture.Create<ApiCreateAccountRequest>();
+            var apiRequest = _fixture.Create<CreateAccountRequest>();
             var fakeStoreResponse = _fixture.Create<FakeStoreCreateAccountResponse>();
             var httpResponse = new HttpResponseMessage(HttpStatusCode.OK);
 
-            var expected = ApiAndFakeStoreAccountMappers.ToApi(fakeStoreResponse);
+            var expected = AccountMappers.ToApi(fakeStoreResponse);
 
             SetupHandler(httpResponse);
 
@@ -198,11 +199,11 @@ namespace VendorGateway.Tests
         public async Task UpdateAsync_SendsPutRequest_ToResolvedUrl_WithMappedBody()
         {
             var id = _fixture.Create<int>();
-            var apiRequest = _fixture.Create<ApiUpdateAccountRequest>();
+            var apiRequest = _fixture.Create<UpdateAccountRequest>();
             var fakeStoreResponse = _fixture.Create<FakeStoreUpdateAccountResponse>();
             var httpResponse = new HttpResponseMessage(HttpStatusCode.OK);
 
-            var expectedBody = ApiAndFakeStoreAccountMappers.ToFakeStore(apiRequest);
+            var expectedBody = AccountMappers.ToFakeStore(apiRequest);
 
             HttpRequestMessage capturedRequest = null;
             SetupHandler(httpResponse, req => capturedRequest = req);
@@ -225,11 +226,11 @@ namespace VendorGateway.Tests
         public async Task UpdateAsync_ReturnsMappedResponse_FromReader()
         {
             var id = _fixture.Create<int>();
-            var apiRequest = _fixture.Create<ApiUpdateAccountRequest>();
+            var apiRequest = _fixture.Create<UpdateAccountRequest>();
             var fakeStoreResponse = _fixture.Create<FakeStoreUpdateAccountResponse>();
             var httpResponse = new HttpResponseMessage(HttpStatusCode.OK);
 
-            var expected = ApiAndFakeStoreAccountMappers.ToApi(fakeStoreResponse);
+            var expected = AccountMappers.ToApi(fakeStoreResponse);
 
             SetupHandler(httpResponse);
 
@@ -321,7 +322,7 @@ namespace VendorGateway.Tests
             var httpResponse = new HttpResponseMessage(HttpStatusCode.OK);
             var fakeStoreResponse = _fixture.Create<IEnumerable<FakeStoreGetProductsResponse>>();
 
-            var expected = ApiAndFakeStoreProductMapper.ToApi(fakeStoreResponse);
+            var expected = ProductMapper.ToApi(fakeStoreResponse);
 
             SetupHandler(httpResponse);
 

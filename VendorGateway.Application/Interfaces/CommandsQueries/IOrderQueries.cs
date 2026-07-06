@@ -1,6 +1,6 @@
 ﻿using VendorGateway.Application.Dtos;
 
-namespace VendorGateway.Infrastructure.Interfaces
+namespace VendorGateway.Application.Interfaces.CommandsQueries
 {
     public interface IOrderQueries
     {
