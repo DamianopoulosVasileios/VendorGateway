@@ -1,6 +1,6 @@
 ﻿using FluentAssertions;
-using VendorGateway.Configuration;
-using VendorGateway.Enums;
+using VendorGateway.Infrastructure.APIs.Configuration;
+using VendorGateway.Infrastructure.Enums;
 using VendorGateway.Tests.Configuration;
 
 namespace VendorGateway.Tests

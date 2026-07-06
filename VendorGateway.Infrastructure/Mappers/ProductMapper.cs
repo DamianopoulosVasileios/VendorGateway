@@ -1,7 +1,7 @@
 ﻿using VendorGateway.Application.Dtos;
-using VendorGateway.Contracts.Product.Responses;
+using VendorGateway.Infrastructure.Apis.Contracts.Responses;
 
-namespace VendorGateway.Mappers
+namespace VendorGateway.Infrastructure.Mappers
 {
     public static class ProductMapper
     {

@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using VendorGateway.Application.Interfaces.ApiClient;
 using VendorGateway.Application.Interfaces.CommandsQueries;
-using VendorGateway.Mappers;
+using VendorGateway.Infrastructure.Mappers;
 
 namespace VendorGateway.Controllers.Products
 {

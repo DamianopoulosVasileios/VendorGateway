@@ -1,5 +1,7 @@
-﻿using VendorGateway.Configuration;
-using VendorGateway.Enums;
+﻿
+
+using VendorGateway.Infrastructure.APIs.Configuration;
+using VendorGateway.Infrastructure.Enums;
 
 namespace VendorGateway.Tests.Configuration
 {
