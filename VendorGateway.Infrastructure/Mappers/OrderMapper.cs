@@ -6,11 +6,15 @@
         {
             return new Application.Dtos.OrderDetails.Order
             {
+                IdempotencyKey = order.IdempotencyKey,
                 Id = order.Id,
                 AccountId = order.AccountId,
                 TotalAmount = order.TotalAmount,
                 TotalQuantity = order.TotalQuantity,
                 Status = order.Status,
+
+                CreatedAt = order.CreatedAt,
+                UpdatedAt = order.UpdatedAt,
 
                 Items = order.Items?
                     .Select(i => i.ToDto())

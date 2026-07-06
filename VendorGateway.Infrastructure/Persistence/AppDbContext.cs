@@ -1,5 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using VendorGateway.Infrastructure.Interfaces;
+using VendorGateway.Application.Interfaces;
 
 namespace VendorGateway.Infrastructure.Persistence
 {
@@ -22,11 +22,16 @@ namespace VendorGateway.Infrastructure.Persistence
         {
             base.OnModelCreating(modelBuilder);
 
+            modelBuilder.Entity<Application.Entities.Order>()
+                .HasIndex(o => o.IdempotencyKey)
+                .IsUnique();
+
             modelBuilder.Entity<Application.Entities.Account>()
                 .HasKey(x => x.Id);
 
             modelBuilder.Entity<Application.Entities.Order>()
                 .HasKey(x => x.Id);
+
             modelBuilder.Entity<Application.Entities.Order>()
                 .Property(o => o.Id)
                 .ValueGeneratedOnAdd();

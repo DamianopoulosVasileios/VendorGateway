@@ -1,7 +1,5 @@
 ﻿using VendorGateway.Contracts.Account.Requests;
 using VendorGateway.Contracts.Account.Responses;
-using VendorGateway.Infrastructure.Contracts.Account.Requests;
-using VendorGateway.Infrastructure.Contracts.Account.Responses;
 
 namespace VendorGateway.Mappers
 {

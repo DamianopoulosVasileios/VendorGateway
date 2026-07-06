@@ -5,15 +5,16 @@ namespace VendorGateway.Application.Entities
 {
     public class Order : IAuditable
     {
-        public static Order Create(int accountId, List<OrderItem> items)
+        public static Order Create(int accountId, Guid idempotencyKey, List<OrderItem> items)
         {
-            return new Order(accountId, items);
+            return new Order(accountId, idempotencyKey, items);
         }
         public static Order CreateWithOrderId(int id, int accountId, List<OrderItem> items)
         {
             return new Order(id, accountId, items);
         }
 
+        public Guid IdempotencyKey { get; private set; }
         public int Id { get; private set; }
         public int AccountId { get; private set; }
         public float TotalAmount { get; private set; }
@@ -30,9 +31,10 @@ namespace VendorGateway.Application.Entities
 
         private Order() { }
 
-        private Order(int accountId, List<OrderItem> items)
+        private Order(int accountId, Guid idempotencyKey, List<OrderItem> items)
         {
             AccountId = accountId;
+            IdempotencyKey = idempotencyKey;
             Status = OrderStatus.Pending;
             Items = items;
 

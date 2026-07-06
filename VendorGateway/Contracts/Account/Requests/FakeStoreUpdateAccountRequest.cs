@@ -1,4 +1,4 @@
-﻿namespace VendorGateway.Infrastructure.Contracts.Account.Requests
+﻿namespace VendorGateway.Contracts.Account.Requests
 {
     public sealed record FakeStoreUpdateAccountRequest(int id);
 }
