@@ -43,6 +43,7 @@ namespace VendorGateway.Infrastructure.Repositories.Account
 
             try
             {
+                //entity.Id = account.Id;
                 //There is no need to update the Id as it is the primary key and should not change.
                 //There is nothing to update in this case, but if there were other properties to update, you would do it here.
                 await _db.SaveChangesAsync(ct);
