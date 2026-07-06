@@ -6,9 +6,10 @@ using VendorGateway.APIs;
 using VendorGateway.Common;
 using VendorGateway.Configuration;
 using VendorGateway.Enums;
-using VendorGateway.Interfaces;
+using VendorGateway.Filters;
 using VendorGateway.Infrastructure.Dependencies;
 using VendorGateway.Infrastructure.Persistence;
+using VendorGateway.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +20,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApiDocument(config =>
 {
     config.Title = "Vendor Gateway API";
+    config.OperationProcessors.Add(new IdempotencyKeyHeaderOperationProcessor());
 });
 
 Configuration(builder);

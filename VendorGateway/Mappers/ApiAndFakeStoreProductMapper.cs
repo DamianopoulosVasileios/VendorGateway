@@ -1,5 +1,4 @@
 ﻿using VendorGateway.Contracts.Product.Responses;
-using VendorGateway.Infrastructure.Contracts.Product.Responses;
 
 namespace VendorGateway.Mappers
 {

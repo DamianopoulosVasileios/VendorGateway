@@ -15,10 +15,17 @@ namespace VendorGateway.Infrastructure.Repositories.Order
             _dbExceptionClassifier = dbExceptionClassifier;
         }
 
-        public async Task CreateAsync(int accountId, List<Application.Dtos.OrderDetails.OrderItem> orderItem, CancellationToken ct)
+        public async Task CreateAsync(int accountId, Guid idempotencyKey, List<Application.Dtos.OrderDetails.OrderItem> orderItem, CancellationToken ct)
         {
+            var existing = await _db.Orders
+                .Include(o => o.Items)
+                .FirstOrDefaultAsync(o => o.IdempotencyKey == idempotencyKey, ct);
+
+            if (existing is not null)
+                return;
+
             var items = orderItem.Select(Mappers.OrderMapper.ToDto).ToList();
-            var orderToPersist = Application.Entities.Order.Create(accountId, items);
+            var orderToPersist = Application.Entities.Order.Create(accountId, idempotencyKey, items);
 
             try
             {
@@ -27,7 +34,10 @@ namespace VendorGateway.Infrastructure.Repositories.Order
             }
             catch (DbUpdateException ex) when (_dbExceptionClassifier.IsUniqueConstraintViolation(ex))
             {
-                throw new InvalidOperationException($"Order was already placed.", ex);
+                var winningOrder = await _db.Orders
+                    .Include(o => o.Items)
+                    .FirstAsync(o => o.IdempotencyKey == idempotencyKey, ct);
+                //Log the exception and the winning order details for debugging purposes
             }
             catch (DbUpdateException ex)
             {

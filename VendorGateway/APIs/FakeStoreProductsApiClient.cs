@@ -3,7 +3,6 @@ using VendorGateway.Common;
 using VendorGateway.Configuration;
 using VendorGateway.Contracts.Product.Responses;
 using VendorGateway.Enums;
-using VendorGateway.Infrastructure.Contracts.Product.Responses;
 using VendorGateway.Interfaces;
 using VendorGateway.Mappers;
 

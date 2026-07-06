@@ -3,7 +3,7 @@ using VendorGateway.Application.Dtos;
 using VendorGateway.Application.Entities;
 using VendorGateway.Application.Enums;
 using VendorGateway.Contracts.Order.Requests;
-using VendorGateway.Enums;
+using VendorGateway.Filters;
 using VendorGateway.Infrastructure.Interfaces;
 
 namespace VendorGateway.Controllers.Order
@@ -27,7 +27,11 @@ namespace VendorGateway.Controllers.Order
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateOrder(ApiCreateOrderRequest request, CancellationToken ct)
+        [RequireIdempotencyKey]
+        public async Task<IActionResult> CreateOrder(
+            [FromHeader(Name = "Idempotency-Key")] Guid? idempotencyKey,
+            ApiCreateOrderRequest request,
+            CancellationToken ct)
         {
             await CheckAccountExists(request.AccountId, ct);
 
@@ -68,7 +72,7 @@ namespace VendorGateway.Controllers.Order
                 })
                 .ToList();
 
-            await orderCommands.CreateAsync(request.AccountId, orderItems, ct);
+            await orderCommands.CreateAsync(request.AccountId, idempotencyKey.Value, orderItems, ct);
 
             return Ok();
         }

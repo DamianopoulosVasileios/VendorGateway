@@ -10,10 +10,9 @@ using VendorGateway.API;
 using VendorGateway.APIs;
 using VendorGateway.Configuration;
 using VendorGateway.Contracts.Account.Requests;
+using VendorGateway.Contracts.Account.Responses;
+using VendorGateway.Contracts.Product.Responses;
 using VendorGateway.Enums;
-using VendorGateway.Infrastructure.Contracts.Account.Requests;
-using VendorGateway.Infrastructure.Contracts.Account.Responses;
-using VendorGateway.Infrastructure.Contracts.Product.Responses;
 using VendorGateway.Interfaces;
 using VendorGateway.Mappers;
 

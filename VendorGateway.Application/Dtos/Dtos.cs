@@ -6,12 +6,16 @@ namespace VendorGateway.Application.Dtos
     {
         public class Order
         {
+            public Guid IdempotencyKey { get; set; }
             public int Id { get; set; }
             public int AccountId { get; set; }
             public float TotalAmount { get; set; }
             public float TotalQuantity { get; set; }
             public OrderStatus Status { get; set; }
             public List<OrderItem> Items { get; set; } = [];
+
+            public DateTimeOffset CreatedAt { get; set; }
+            public DateTimeOffset UpdatedAt { get; set; }
         }
 
         public class OrderItem
