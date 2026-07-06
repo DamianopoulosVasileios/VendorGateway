@@ -14,10 +14,7 @@ namespace VendorGateway.Controllers.Account
         public async Task<IActionResult> GetAccount([FromServices] IGetAccountService getAccountService, int id, CancellationToken ct)
         {
             var result = await getAccountService.GetAsync(id, ct);
-            if (result == null)
-                throw new KeyNotFoundException("Account could not be fetched.");
-
-            var response = new ApiGetAccountResponse(result.Id, result.Email, result.Orders, result.CreatedAt, result.UpdatedAt);
+            var response = new ApiGetAccountResponse(result!.Id, result.Email, result.Orders, result.CreatedAt, result.UpdatedAt);
             return Ok(response);
         }
 
