@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using VendorGateway.Application.Interfaces.CommandsQueries;
 using VendorGateway.Infrastructure.Interfaces;
 using VendorGateway.Infrastructure.Persistence;
 
@@ -24,7 +25,7 @@ namespace VendorGateway.Infrastructure.Repositories.Order
             if (existing is not null)
                 return;
 
-            var items = orderItem.Select(Mappers.OrderMapper.ToDto).ToList();
+            var items = orderItem.Select(Application.Mappers.OrderMapper.ToDto).ToList();
             var orderToPersist = Application.Entities.Order.Create(accountId, idempotencyKey, items);
 
             try
@@ -47,7 +48,7 @@ namespace VendorGateway.Infrastructure.Repositories.Order
 
         public async Task UpdateAsync(int accountId, Application.Dtos.OrderDetails.Order order, CancellationToken ct)
         {
-            var items = order.Items.Select(Mappers.OrderMapper.ToDto).ToList();
+            var items = order.Items.Select(Application.Mappers.OrderMapper.ToDto).ToList();
             var newOrder = Application.Entities.Order.CreateWithOrderId(order.Id, accountId, items);
 
             try

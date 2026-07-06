@@ -1,10 +1,10 @@
-﻿using VendorGateway.Contracts.Product.Responses;
+﻿using VendorGateway.Application.Dtos;
 
 namespace VendorGateway.Mappers
 {
     public static class ProductMappers
     {
-        public static IEnumerable<Application.Entities.Product> Map(IEnumerable<ApiGetProductsResponse> productsFromStore)
+        public static IEnumerable<Application.Entities.Product> Map(IEnumerable<GetProductsResponse> productsFromStore)
         {
             return productsFromStore.Select(product => new Application.Entities.Product
             {

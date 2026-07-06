@@ -1,5 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using VendorGateway.Infrastructure.Interfaces;
+using VendorGateway.Application.Interfaces.CommandsQueries;
 using VendorGateway.Infrastructure.Persistence;
 
 namespace VendorGateway.Infrastructure.Repositories.Product

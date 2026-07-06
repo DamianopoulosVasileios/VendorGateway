@@ -1,28 +1,29 @@
-﻿using VendorGateway.Contracts.Account.Requests;
+﻿using VendorGateway.Application.Dtos;
+using VendorGateway.Contracts.Account.Requests;
 using VendorGateway.Contracts.Account.Responses;
 
 namespace VendorGateway.Mappers
 {
-    public static class ApiAndFakeStoreAccountMappers
+    public static class AccountMappers
     {
-        public static ApiGetAccountResponse ToApi(FakeStoreGetAccountResponse response)
+        public static GetAccountVendorResponse ToApi(FakeStoreGetAccountResponse response)
         {
-            return new ApiGetAccountResponse(response.id, response.email);
+            return new GetAccountVendorResponse(response.id, response.email);
         }
-        public static ApiCreateAccountResponse ToApi(FakeStoreCreateAccountResponse request)
+        public static CreateAccountVendorResponse ToApi(FakeStoreCreateAccountResponse request)
         {
-            return new ApiCreateAccountResponse(request.id, request.email);
+            return new CreateAccountVendorResponse(request.id, request.email);
         }
-        public static ApiUpdateAccountResponse ToApi(FakeStoreUpdateAccountResponse request)
+        public static UpdateAccountVendorResponse ToApi(FakeStoreUpdateAccountResponse request)
         {
-            return new ApiUpdateAccountResponse(request.id);
+            return new UpdateAccountVendorResponse(request.id);
         }
 
-        public static FakeStoreCreateAccountRequest ToFakeStore(ApiCreateAccountRequest request)
+        public static FakeStoreCreateAccountRequest ToFakeStore(CreateAccountRequest request)
         {
             return new FakeStoreCreateAccountRequest(request.id, request.email);
         }
-        public static FakeStoreUpdateAccountRequest ToFakeStore(ApiUpdateAccountRequest request)
+        public static FakeStoreUpdateAccountRequest ToFakeStore(UpdateAccountRequest request)
         {
             return new FakeStoreUpdateAccountRequest(request.id);
         }

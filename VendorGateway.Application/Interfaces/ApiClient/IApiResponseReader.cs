@@ -1,4 +1,4 @@
-﻿namespace VendorGateway.Interfaces
+﻿namespace VendorGateway.Application.Interfaces.ApiClient
 {
     public interface IApiResponseReader
     {

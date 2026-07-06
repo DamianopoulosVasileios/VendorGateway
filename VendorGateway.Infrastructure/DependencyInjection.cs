@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using VendorGateway.Application.Interfaces.CommandsQueries;
 using VendorGateway.Infrastructure.ExceptionClassifiers;
 using VendorGateway.Infrastructure.Interfaces;
 using VendorGateway.Infrastructure.Persistence;
@@ -14,11 +15,11 @@ namespace VendorGateway.Infrastructure.Dependencies
         public static IServiceCollection AddServicesFromInfrastructure(this IServiceCollection services, string mode, string connString)
         {
             services.AddScoped<IAccountQueries, AccountQueries>();
-            services.AddScoped<IProductCommands, ProductCommands>();
-            services.AddScoped<IOrderCommands, OrderCommands>();
-            services.AddScoped<IOrderQueries, OrderQueries>();
             services.AddScoped<IAccountCommands, AccountCommands>();
             services.AddScoped<IProductQueries, ProductQueries>();
+            services.AddScoped<IProductCommands, ProductCommands>();
+            services.AddScoped<IOrderQueries, OrderQueries>();
+            services.AddScoped<IOrderCommands, OrderCommands>();
 
             services.AddExceptionClassifierInfrastructure();
 
