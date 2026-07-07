@@ -14,7 +14,7 @@ namespace VendorGateway.Infrastructure.API
         protected override Vendors Vendor => Vendors.FakeStore;
         private readonly IApiResponseReader _apiResponseReader;
 
-        public FakeStoreProductsApiClient(IApiResponseReader apiResponseReader, IHttpClientFactory factory, VendorsConfiguration configuration) 
+        public FakeStoreProductsApiClient(IApiResponseReader apiResponseReader, IHttpClientFactory factory, VendorsConfiguration configuration)
             : base(factory, configuration)
         {
             _apiResponseReader = apiResponseReader;
@@ -26,7 +26,7 @@ namespace VendorGateway.Infrastructure.API
 
             var call = await Client.GetAsync(url, ct);
             var response = await _apiResponseReader.ReadAsync<IEnumerable<FakeStoreGetProductsResponse>>(call, ct);
-            return ProductMapper.ToApi(response);
+            return ProductMappers.ToApi(response);
         }
 
         public async Task<HttpResponseMessage> DeleteByIdAsync(int id, CancellationToken ct)

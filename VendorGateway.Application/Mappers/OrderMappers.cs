@@ -1,6 +1,6 @@
 ﻿namespace VendorGateway.Application.Mappers
 {
-    public static class OrderMapper
+    public static class OrderMappers
     {
         public static Dtos.OrderDetails.Order ToDto(this Entities.Order order)
         {

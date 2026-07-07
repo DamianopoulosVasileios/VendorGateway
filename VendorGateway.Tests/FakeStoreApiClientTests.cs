@@ -321,7 +321,7 @@ namespace VendorGateway.Tests
             var httpResponse = new HttpResponseMessage(HttpStatusCode.OK);
             var fakeStoreResponse = _fixture.Create<IEnumerable<FakeStoreGetProductsResponse>>();
 
-            var expected = ProductMapper.ToApi(fakeStoreResponse);
+            var expected = ProductMappers.ToApi(fakeStoreResponse);
 
             SetupHandler(httpResponse);
 

@@ -1,12 +1,10 @@
-﻿using VendorGateway.Application.Dtos;
+﻿using System.Net.Http.Json;
+using VendorGateway.Application.Dtos;
 using VendorGateway.Application.Interfaces.ApiClient;
-using VendorGateway.Application.Enums;
-using VendorGateway.Application.Mappers;
-using VendorGateway.Infrastructure.Enums;
-using VendorGateway.Infrastructure.APIs.Configuration;
-using VendorGateway.Infrastructure.Helpers;
 using VendorGateway.Infrastructure.Apis.Contracts.Responses;
-using System.Net.Http.Json;
+using VendorGateway.Infrastructure.APIs.Configuration;
+using VendorGateway.Infrastructure.Enums;
+using VendorGateway.Infrastructure.Helpers;
 using VendorGateway.Infrastructure.Mappers;
 
 namespace VendorGateway.Infrastructure.APIs

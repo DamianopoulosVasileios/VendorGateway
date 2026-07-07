@@ -1,42 +1,33 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using VendorGateway.Application.Interfaces.ApiClient;
-using VendorGateway.Application.Interfaces.CommandsQueries;
-using VendorGateway.Infrastructure.Mappers;
+using VendorGateway.Application.Interfaces.Services;
+using VendorGateway.Mappers;
 
 namespace VendorGateway.Controllers.Products
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class ProductsController(IProductQueries productQueries, IProductCommands productCommands, IProductsApiClient productsApiClient) : ControllerBase
+    public class ProductsController() : ControllerBase
     {
         [HttpGet]
-        public async Task<IActionResult> GetProducts(CancellationToken ct)
+        public async Task<IActionResult> GetProducts([FromServices] IGetProductService service, CancellationToken ct)
         {
-            var results = await productQueries.GetAsync(ct);
-            return Ok(results);
+            var products = await service.GetAsync(ct);
+            var mappedResponse = products.Select(p => p.ToApiResponse()).ToList();
+            return Ok(mappedResponse);
         }
+
         [HttpDelete]
-        public async Task<IActionResult> DeleteProducts(CancellationToken ct)
+        public async Task<IActionResult> DeleteProducts([FromServices] IDeleteProductService service, CancellationToken ct)
         {
-            await productCommands.DeleteAsync(ct);
+            await service.DeleteAsync(ct);
             return Ok();
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateProducts(CancellationToken ct)
+        public async Task<IActionResult> CreateProducts([FromServices] ICreateProductService service, CancellationToken ct)
         {
-            var productsFromStore = await productsApiClient.GetAllAsync(ct);
-            var productsToPersist = ProductMappers.Map(productsFromStore);
-
-            try
-            {
-                var result = await productCommands.AddRangeAsync(productsToPersist, ct);
-                if (!result)
-                    return BadRequest("Failed to persist products.");
-            }
-            catch { }
-
-            return Ok();
+            var result = await service.CreateAsync(ct);
+            return Ok(result);
         }
     }
 }
