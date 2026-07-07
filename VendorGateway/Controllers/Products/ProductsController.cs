@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using VendorGateway.API.Mappers;
 using VendorGateway.Application.Interfaces.Services;
-using VendorGateway.Mappers;
 
-namespace VendorGateway.Controllers.Products
+namespace VendorGateway.API.Controllers.Products
 {
     [ApiController]
     [Route("api/[controller]")]

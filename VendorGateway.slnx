@@ -2,5 +2,5 @@
   <Project Path="VendorGateway.Application/VendorGateway.Application.csproj" Id="a505a8c3-e45b-49db-8c1f-06a296286e26" />
   <Project Path="VendorGateway.Infrastructure/VendorGateway.Infrastructure.csproj" />
   <Project Path="VendorGateway.Tests/VendorGateway.Tests.csproj" />
-  <Project Path="VendorGateway/VendorGateway.csproj" />
+  <Project Path="VendorGateway/VendorGateway.API.csproj" />
 </Solution>

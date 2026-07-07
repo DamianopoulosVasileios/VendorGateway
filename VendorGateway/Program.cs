@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using VendorGateway.API.Filters;
 using VendorGateway.Application.DependencyInjection;
 using VendorGateway.Application.Interfaces.ApiClient;
-using VendorGateway.Filters;
 using VendorGateway.Infrastructure.API;
 using VendorGateway.Infrastructure.APIs;
 using VendorGateway.Infrastructure.APIs.Configuration;

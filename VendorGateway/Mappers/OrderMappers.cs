@@ -1,8 +1,8 @@
-﻿using VendorGateway.Application.Dtos;
-using VendorGateway.Contracts.Order.Requests;
+﻿using VendorGateway.API.Contracts.Order.Requests;
+using VendorGateway.Application.Dtos;
 using static VendorGateway.Application.Dtos.OrderRequest;
 
-namespace VendorGateway.Mappers
+namespace VendorGateway.API.Mappers
 {
     public static class OrderMappers
     {

@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\VendorGateway\VendorGateway.csproj" />
+    <ProjectReference Include="..\VendorGateway\VendorGateway.API.csproj" />
   </ItemGroup>
 
   <ItemGroup>

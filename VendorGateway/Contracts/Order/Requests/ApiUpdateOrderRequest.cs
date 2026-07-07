@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 
-namespace VendorGateway.Contracts.Order.Requests
+namespace VendorGateway.API.Contracts.Order.Requests
 {
     public sealed class ApiUpdateOrderRequest
     {
