@@ -25,8 +25,10 @@ namespace VendorGateway.Infrastructure.Repositories.Order
             if (existing is not null)
                 return;
 
-            var items = orderItem.Select(Application.Mappers.OrderMapper.ToDto).ToList();
+            var items = orderItem.Select(Application.Mappers.OrderMappers.ToDto).ToList();
             var orderToPersist = Application.Entities.Order.Create(accountId, idempotencyKey, items);
+
+            CheckOrderValidity(orderToPersist);
 
             try
             {
@@ -48,8 +50,10 @@ namespace VendorGateway.Infrastructure.Repositories.Order
 
         public async Task UpdateAsync(int accountId, Application.Dtos.OrderDetails.Order order, CancellationToken ct)
         {
-            var items = order.Items.Select(Application.Mappers.OrderMapper.ToDto).ToList();
+            var items = order.Items.Select(Application.Mappers.OrderMappers.ToDto).ToList();
             var newOrder = Application.Entities.Order.CreateWithOrderId(order.Id, accountId, items);
+
+            CheckOrderValidity(newOrder);
 
             try
             {
@@ -136,5 +140,14 @@ namespace VendorGateway.Infrastructure.Repositories.Order
                 throw new InvalidOperationException($"Failed to delete orders.", ex);
             }
         }
+
+        private static void CheckOrderValidity(Application.Entities.Order newOrder)
+        {
+            if (newOrder.TotalAmount == 0)
+                throw new InvalidDataException("Order to be updated can not have 0 total ammount");
+            else if (newOrder.TotalQuantity == 0)
+                throw new InvalidDataException("Order to be updated can not have 0 total quantity");
+        }
+
     }
 }

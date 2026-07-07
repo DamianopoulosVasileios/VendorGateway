@@ -1,20 +1,17 @@
 ﻿using VendorGateway.Application.Dtos;
+using VendorGateway.Infrastructure.Apis.Contracts.Responses;
 
 namespace VendorGateway.Infrastructure.Mappers
 {
     public static class ProductMappers
     {
-        public static IEnumerable<Application.Entities.Product> Map(IEnumerable<GetProductsResponse> productsFromStore)
+        public static GetProductsResponse ToApi(FakeStoreGetProductsResponse response)
         {
-            return productsFromStore.Select(product => new Application.Entities.Product
-            {
-                Id = product.id,
-                Title = product.Title,
-                Price = product.Price,
-                Description = product.Description,
-                Category = product.Category,
-                Image = product.Image
-            });
+            return new GetProductsResponse(response.id, response.Title, response.Price, response.Description, response.Category, response.Image);
+        }
+        public static IEnumerable<GetProductsResponse> ToApi(IEnumerable<FakeStoreGetProductsResponse> responses)
+        {
+            return responses.Select(ToApi);
         }
     }
 }

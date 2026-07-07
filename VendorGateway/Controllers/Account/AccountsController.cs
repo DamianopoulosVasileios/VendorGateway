@@ -14,8 +14,8 @@ namespace VendorGateway.Controllers.Account
         public async Task<IActionResult> GetAccount([FromServices] IGetAccountService getAccountService, int id, CancellationToken ct)
         {
             var result = await getAccountService.GetAsync(id, ct);
-            var response = new ApiGetAccountResponse(result!.Id, result.Email, result.Orders, result.CreatedAt, result.UpdatedAt);
-            return Ok(response);
+            var mappedResponse = new ApiGetAccountResponse(result!.Id, result.Email, result.Orders, result.CreatedAt, result.UpdatedAt);
+            return Ok(mappedResponse);
         }
 
         [HttpPost]

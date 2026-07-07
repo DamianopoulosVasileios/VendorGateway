@@ -23,7 +23,7 @@ namespace VendorGateway.Infrastructure.Repositories.Order
                 .AsNoTracking()
                 .ToListAsync(ct);
 
-            return [.. data.Select(OrderMapper.ToDto)];
+            return [.. data.Select(OrderMappers.ToDto)];
         }
 
         public async Task<List<OrderDetails.Order>> GetAsync(int accountId, CancellationToken ct)
@@ -34,7 +34,7 @@ namespace VendorGateway.Infrastructure.Repositories.Order
                 .AsNoTracking()
                 .ToListAsync(ct);
 
-            return [.. data.Select(OrderMapper.ToDto)];
+            return [.. data.Select(OrderMappers.ToDto)];
         }
 
         public async Task<List<OrderDetails.OrderItem>> GetOrderItemsAsync(IEnumerable<int> ids, CancellationToken ct)
@@ -44,7 +44,7 @@ namespace VendorGateway.Infrastructure.Repositories.Order
                 .AsNoTracking()
                 .ToListAsync(ct);
 
-            return [.. data.Select(OrderMapper.ToDto)];
+            return [.. data.Select(OrderMappers.ToDto)];
         }
     }
 }
