@@ -1,11 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using VendorGateway.API.Contracts.Order.Requests;
+using VendorGateway.API.Filters;
+using VendorGateway.API.Mappers;
 using VendorGateway.Application.Interfaces.CommandsQueries;
 using VendorGateway.Application.Interfaces.Services;
-using VendorGateway.Contracts.Order.Requests;
-using VendorGateway.Filters;
-using VendorGateway.Mappers;
 
-namespace VendorGateway.Controllers.Order
+namespace VendorGateway.API.Controllers.Order
 {
     [ApiController]
     [Route("api/[controller]")]

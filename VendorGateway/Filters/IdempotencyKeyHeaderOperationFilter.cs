@@ -1,7 +1,7 @@
 ﻿using NSwag.Generation.Processors;
 using NSwag.Generation.Processors.Contexts;
 
-namespace VendorGateway.Filters
+namespace VendorGateway.API.Filters
 {
     public sealed class IdempotencyKeyHeaderOperationProcessor : IOperationProcessor
     {
@@ -15,7 +15,7 @@ namespace VendorGateway.Filters
                 idempotencyParam.Example = Guid.NewGuid().ToString();
             }
 
-            return true; // must return true to keep the operation in the document
+            return true;
         }
     }
 }

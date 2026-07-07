@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
-namespace VendorGateway.Filters
+namespace VendorGateway.API.Filters
 {
     public sealed class RequireIdempotencyKeyAttribute : ActionFilterAttribute
     {

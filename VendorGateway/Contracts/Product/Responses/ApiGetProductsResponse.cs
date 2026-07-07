@@ -1,4 +1,4 @@
-﻿namespace VendorGateway.Contracts.Product.Responses
+﻿namespace VendorGateway.API.Contracts.Product.Responses
 {
     public sealed record ApiGetProductsResponse(
         int id,

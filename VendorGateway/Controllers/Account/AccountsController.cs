@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
+using VendorGateway.API.Contracts.Account.Requests;
+using VendorGateway.API.Contracts.Account.Responses;
 using VendorGateway.Application.Dtos;
 using VendorGateway.Application.Interfaces.Services;
-using VendorGateway.Contracts.Account.Requests;
-using VendorGateway.Contracts.Account.Responses;
 
-namespace VendorGateway.Controllers.Account
+namespace VendorGateway.API.Controllers.Account
 {
     [ApiController]
     [Route("api/[controller]")]
