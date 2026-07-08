@@ -1,14 +1,18 @@
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 using VendorGateway.API.Contracts.Account.Requests;
 using VendorGateway.API.Contracts.Account.Responses;
 using VendorGateway.Application.Dtos;
 using VendorGateway.Application.Interfaces.Services;
+using VendorGateway.Application.Jobs.Commands;
+using VendorGateway.Application.Jobs.Entities;
+using static VendorGateway.Application.Jobs.DTOs.AsynchronousAPI;
 
 namespace VendorGateway.API.Controllers.Account
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class AccountsController : ControllerBase
+    public class AccountsController(IJobCommands jobCommands) : ControllerBase
     {
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetAccount([FromServices] IGetAccountService getAccountService, int id, CancellationToken ct)
@@ -21,9 +25,15 @@ namespace VendorGateway.API.Controllers.Account
         [HttpPost]
         public async Task<IActionResult> CreateAccount([FromServices] ICreateAccountService createAccountService, ApiCreateAccountRequest request, CancellationToken ct)
         {
-            var mapped = new CreateAccountRequest(request.id, request.email);
-            await createAccountService.CreateAsync(mapped, ct);
-            return Ok();
+            var mappedRequest = new CreateAccountRequest(request.id, request.email);
+            var payload = new CreateAccountJobPayload(mappedRequest);
+            var job = new Job { Type = JobType.CreateAccount, Payload = JsonSerializer.Serialize(payload) };
+
+            await jobCommands.CreateAsync(job, ct);
+            return Accepted();
+
+            //await createAccountService.CreateAsync(mapped, ct);
+            //return Ok();
         }
 
         [HttpPut("{id:int}")]

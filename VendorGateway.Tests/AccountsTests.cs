@@ -1,13 +1,12 @@
-﻿using System.Net;
-using AutoFixture;
+﻿using AutoFixture;
 using AutoFixture.AutoMoq;
 using FluentAssertions;
 using Moq;
+using System.Net;
 using VendorGateway.Application.Dtos;
 using VendorGateway.Application.Interfaces.ApiClient;
 using VendorGateway.Application.Interfaces.CommandsQueries;
 using VendorGateway.Application.Services.Account;
-using Xunit;
 
 namespace VendorGateway.Tests.Account
 {

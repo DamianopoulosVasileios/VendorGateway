@@ -1,8 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using VendorGateway.Application.Interfaces.CommandsQueries;
+using VendorGateway.Application.Jobs.Commands;
 using VendorGateway.Infrastructure.ExceptionClassifiers;
 using VendorGateway.Infrastructure.Interfaces;
+using VendorGateway.Infrastructure.Jobs.Commands;
 using VendorGateway.Infrastructure.Persistence;
 using VendorGateway.Infrastructure.Repositories.Account;
 using VendorGateway.Infrastructure.Repositories.Order;
@@ -20,6 +22,7 @@ namespace VendorGateway.Infrastructure.Dependencies
             services.AddScoped<IProductCommands, ProductCommands>();
             services.AddScoped<IOrderQueries, OrderQueries>();
             services.AddScoped<IOrderCommands, OrderCommands>();
+            services.AddScoped<IJobCommands, JobCommands>();
 
             services.AddExceptionClassifierInfrastructure();
 

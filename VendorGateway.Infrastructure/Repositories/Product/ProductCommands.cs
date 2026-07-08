@@ -16,7 +16,7 @@ namespace VendorGateway.Infrastructure.Repositories.Product
             _dbExceptionClassifier = dbExceptionClassifier;
         }
 
-        public async Task<bool> AddRangeAsync(IEnumerable<Application.Entities.Product> products, CancellationToken ct)
+        public async Task<bool> UpdateRangeAsync(IEnumerable<Application.Entities.Product> products, CancellationToken ct)
         {
             ArgumentNullException.ThrowIfNull(products);
 
@@ -41,6 +41,7 @@ namespace VendorGateway.Infrastructure.Repositories.Product
 
             try
             {
+                await _db.Products.ExecuteDeleteAsync(ct);
                 await _db.Products.AddRangeAsync(productList, ct);
                 await _db.SaveChangesAsync(ct);
                 return true;

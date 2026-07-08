@@ -3,7 +3,6 @@ using AutoFixture.AutoMoq;
 using FluentAssertions;
 using Moq;
 using VendorGateway.Application.Dtos;
-using VendorGateway.Application.Entities;
 using VendorGateway.Application.Enums;
 using VendorGateway.Application.Interfaces.CommandsQueries;
 using VendorGateway.Application.Services.Order;
@@ -13,7 +12,7 @@ namespace VendorGateway.Tests.Order
     // =====================================================================
     // Shared test data builders
     // =====================================================================
-    internal static class TestData
+    public static class TestData
     {
         public static Application.Entities.Product Product(int id, string category, float price) => new()
         {

@@ -26,7 +26,7 @@ namespace VendorGateway.API.Controllers.Products
         [HttpPost]
         public async Task<IActionResult> CreateProducts([FromServices] ICreateProductService service, CancellationToken ct)
         {
-            var result = await service.CreateAsync(ct);
+            var result = await service.UpdateAsync(ct);
             return Ok(result);
         }
     }
