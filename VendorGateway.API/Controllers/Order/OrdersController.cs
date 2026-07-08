@@ -1,15 +1,19 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 using VendorGateway.API.Contracts.Order.Requests;
 using VendorGateway.API.Filters;
 using VendorGateway.API.Mappers;
 using VendorGateway.Application.Interfaces.CommandsQueries;
 using VendorGateway.Application.Interfaces.Services;
+using VendorGateway.Application.Jobs.Commands;
+using VendorGateway.Application.Jobs.Entities;
+using static VendorGateway.Application.Jobs.DTOs.AsynchronousAPI;
 
 namespace VendorGateway.API.Controllers.Order
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class OrdersController : ControllerBase
+    public class OrdersController(IJobCommands jobCommands) : ControllerBase
     {
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetOrder([FromServices] IGetOrderService service, int accountId, int id, CancellationToken ct)
@@ -28,8 +32,15 @@ namespace VendorGateway.API.Controllers.Order
             CancellationToken ct)
         {
             var mappedOrder = request.ToDto();
-            await service.CreateAsync(idempotencyKey, mappedOrder, ct);
-            return Ok();
+            var payload = new CreateOrderJobPayload(idempotencyKey, mappedOrder with { AccountId = request.AccountId });
+            var job = new Job { Type = JobType.CreateOrder, Payload = JsonSerializer.Serialize(payload) };
+
+            await jobCommands.CreateAsync(job, ct);
+            return Accepted();
+
+            //var mappedOrder = request.ToDto();
+            //await service.CreateAsync(idempotencyKey, mappedOrder, ct);
+            //return Ok();
         }
 
         [HttpPut("{id:int}")]

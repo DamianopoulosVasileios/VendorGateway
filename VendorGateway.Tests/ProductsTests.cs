@@ -7,7 +7,6 @@ using VendorGateway.Application.Interfaces.ApiClient;
 using VendorGateway.Application.Interfaces.CommandsQueries;
 using VendorGateway.Application.Mappers;
 using VendorGateway.Application.Services.Product;
-using Xunit;
 
 namespace VendorGateway.Tests.Product
 {
@@ -52,13 +51,13 @@ namespace VendorGateway.Tests.Product
 
             IEnumerable<Application.Entities.Product>? capturedProducts = null;
             _productCommandsMock
-                .Setup(c => c.AddRangeAsync(It.IsAny<IEnumerable<Application.Entities.Product>>(), It.IsAny<CancellationToken>()))
+                .Setup(c => c.UpdateRangeAsync(It.IsAny<IEnumerable<Application.Entities.Product>>(), It.IsAny<CancellationToken>()))
                 .Callback<IEnumerable<Application.Entities.Product>, CancellationToken>((products, _) => capturedProducts = products)
                 .ReturnsAsync(true);
 
             using var cts = new CancellationTokenSource();
 
-            var result = await _sut.CreateAsync(cts.Token);
+            var result = await _sut.UpdateAsync(cts.Token);
 
             result.Should().BeTrue();
 
@@ -66,7 +65,7 @@ namespace VendorGateway.Tests.Product
             capturedProducts.Should().BeEquivalentTo(expectedMapped);
 
             _productCommandsMock.Verify(
-                c => c.AddRangeAsync(It.IsAny<IEnumerable<Application.Entities.Product>>(), cts.Token),
+                c => c.UpdateRangeAsync(It.IsAny<IEnumerable<Application.Entities.Product>>(), cts.Token),
                 Times.Once);
         }
 
@@ -78,10 +77,10 @@ namespace VendorGateway.Tests.Product
                 .ReturnsAsync([VendorProduct(1)]);
 
             _productCommandsMock
-                .Setup(c => c.AddRangeAsync(It.IsAny<IEnumerable<Application.Entities.Product>>(), It.IsAny<CancellationToken>()))
+                .Setup(c => c.UpdateRangeAsync(It.IsAny<IEnumerable<Application.Entities.Product>>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(false);
 
-            var result = await _sut.CreateAsync(CancellationToken.None);
+            var result = await _sut.UpdateAsync(CancellationToken.None);
 
             result.Should().BeFalse();
         }
@@ -100,10 +99,10 @@ namespace VendorGateway.Tests.Product
                 .ReturnsAsync([VendorProduct(1)]);
 
             _productCommandsMock
-                .Setup(c => c.AddRangeAsync(It.IsAny<IEnumerable<Application.Entities.Product>>(), It.IsAny<CancellationToken>()))
+                .Setup(c => c.UpdateRangeAsync(It.IsAny<IEnumerable<Application.Entities.Product>>(), It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new InvalidOperationException("duplicate product ids"));
 
-            var result = await _sut.CreateAsync(CancellationToken.None);
+            var result = await _sut.UpdateAsync(CancellationToken.None);
 
             result.Should().BeTrue("this reflects the CURRENT (buggy) behavior — the exception is silently swallowed");
         }
@@ -115,12 +114,12 @@ namespace VendorGateway.Tests.Product
                 .Setup(c => c.GetAllAsync(It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new HttpRequestException("vendor unreachable"));
 
-            var act = () => _sut.CreateAsync(CancellationToken.None);
+            var act = () => _sut.UpdateAsync(CancellationToken.None);
 
             await act.Should().ThrowAsync<HttpRequestException>();
 
             _productCommandsMock.Verify(
-                c => c.AddRangeAsync(It.IsAny<IEnumerable<Application.Entities.Product>>(), It.IsAny<CancellationToken>()),
+                c => c.UpdateRangeAsync(It.IsAny<IEnumerable<Application.Entities.Product>>(), It.IsAny<CancellationToken>()),
                 Times.Never);
         }
 
@@ -132,14 +131,14 @@ namespace VendorGateway.Tests.Product
                 .ReturnsAsync([]);
 
             _productCommandsMock
-                .Setup(c => c.AddRangeAsync(It.IsAny<IEnumerable<Application.Entities.Product>>(), It.IsAny<CancellationToken>()))
+                .Setup(c => c.UpdateRangeAsync(It.IsAny<IEnumerable<Application.Entities.Product>>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(true);
 
-            var result = await _sut.CreateAsync(CancellationToken.None);
+            var result = await _sut.UpdateAsync(CancellationToken.None);
 
             result.Should().BeTrue();
             _productCommandsMock.Verify(
-                c => c.AddRangeAsync(It.Is<IEnumerable<Application.Entities.Product>>(p => !p.Any()), It.IsAny<CancellationToken>()),
+                c => c.UpdateRangeAsync(It.Is<IEnumerable<Application.Entities.Product>>(p => !p.Any()), It.IsAny<CancellationToken>()),
                 Times.Once);
         }
     }

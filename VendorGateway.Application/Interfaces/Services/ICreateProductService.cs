@@ -2,6 +2,6 @@
 {
     public interface ICreateProductService
     {
-        Task<bool> CreateAsync(CancellationToken ct);
+        Task<bool> UpdateAsync(CancellationToken ct);
     }
 }

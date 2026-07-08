@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using VendorGateway.Application.Interfaces.Services;
+using VendorGateway.Application.Jobs;
 using VendorGateway.Application.Services.Account;
 using VendorGateway.Application.Services.Order;
 using VendorGateway.Application.Services.Product;
@@ -24,6 +25,11 @@ namespace VendorGateway.Application.DependencyInjection
             services.AddScoped<ICreateProductService, CreateProductService>();
             services.AddScoped<IGetProductService, GetProductService>();
             services.AddScoped<IDeleteProductService, DeleteProductService>();
+
+            services.AddHostedService<JobProcessingBackgroundService>();
+            services.AddHostedService<FailedJobProcessingBackgroundService>();
+            services.AddHostedService<SyncProductsFromVendorBackgroundService>();
+
             return services;
         }
     }

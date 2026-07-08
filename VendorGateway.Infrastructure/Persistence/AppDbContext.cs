@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using VendorGateway.Application.Interfaces;
+using VendorGateway.Application.Jobs.Entities;
 
 namespace VendorGateway.Infrastructure.Persistence
 {
@@ -17,6 +18,8 @@ namespace VendorGateway.Infrastructure.Persistence
         public DbSet<Application.Entities.Account> Accounts => Set<Application.Entities.Account>();
         public DbSet<Application.Entities.Order> Orders => Set<Application.Entities.Order>();
         public DbSet<Application.Entities.OrderItem> OrderItems => Set<Application.Entities.OrderItem>();
+        public DbSet<Job> Jobs => Set<Application.Jobs.Entities.Job>();
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -56,6 +59,28 @@ namespace VendorGateway.Infrastructure.Persistence
                 .HasOne(oi => oi.Product)
                 .WithMany()
                 .HasForeignKey(oi => oi.ProductId);
+
+            modelBuilder.Entity<Job>()
+                .HasKey(x => x.Id);
+
+            modelBuilder.Entity<Job>()
+                .Property(x => x.Id)
+                .ValueGeneratedNever();
+
+            modelBuilder.Entity<Job>()
+                .HasIndex(x => new { x.Status, x.CreatedAt });
+
+            modelBuilder.Entity<Job>()
+                .Property(x => x.CreatedAt)
+                .HasConversion(
+                    v => v.UtcDateTime,
+                    v => new DateTimeOffset(v, TimeSpan.Zero));
+
+            modelBuilder.Entity<Job>()
+                .Property(x => x.UpdatedAt)
+                .HasConversion(
+                    v => v.UtcDateTime,
+                    v => new DateTimeOffset(v, TimeSpan.Zero));
         }
 
         public override async Task<int> SaveChangesAsync(CancellationToken ct = default)
