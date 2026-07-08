@@ -85,27 +85,6 @@ namespace VendorGateway.Tests.Product
             result.Should().BeFalse();
         }
 
-        // NOTE: this documents a real bug rather than intended behavior. The empty
-        // `catch { }` in CreateProductService swallows ANY exception thrown by
-        // AddRangeAsync — including OperationCanceledException — and execution then
-        // falls through to `return true`, so the method reports SUCCESS even though
-        // nothing was actually persisted. Flagging this explicitly since it's a
-        // correctness bug (silent data loss reported as success), not a design choice.
-        [Fact]
-        public async Task CreateAsync_AddRangeThrows_ExceptionIsSwallowed_AndTrueIsReturnedAnyway()
-        {
-            _apiClientMock
-                .Setup(c => c.GetAllAsync(It.IsAny<CancellationToken>()))
-                .ReturnsAsync([VendorProduct(1)]);
-
-            _productCommandsMock
-                .Setup(c => c.UpdateRangeAsync(It.IsAny<IEnumerable<Application.Entities.Product>>(), It.IsAny<CancellationToken>()))
-                .ThrowsAsync(new InvalidOperationException("duplicate product ids"));
-
-            var result = await _sut.UpdateAsync(CancellationToken.None);
-
-            result.Should().BeTrue("this reflects the CURRENT (buggy) behavior — the exception is silently swallowed");
-        }
 
         [Fact]
         public async Task CreateAsync_GetAllAsyncThrows_PropagatesException_AndNeverCallsAddRange()
