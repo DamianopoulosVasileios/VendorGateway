@@ -86,9 +86,8 @@ static void SetupHttpClient(WebApplicationBuilder builder)
 
 static void RegisterServicesFromOtherProjects(WebApplicationBuilder builder)
 {
-    var connString = builder.Configuration.GetConnectionString("SQLiteConnectionString");
     var mode = builder.Configuration["AppSettings:Mode"];
-    builder.Services.AddServicesFromInfrastructure(mode, connString);
+    builder.Services.AddServicesFromInfrastructure(mode);
     builder.Services.AddServicesFromApplication();
 }
 

@@ -83,7 +83,7 @@ namespace VendorGateway.Application.Services.Order
                 order.Items.Any(item => productByIds.ContainsKey(item.ProductId)));
 
             if (existingOrder)
-                throw new InvalidCastException("Cannot create a new order if you already have a pending order with at least one of the given product ids");
+                throw new InvalidOperationException("Cannot create a new order if you already have a pending order with at least one of the given product ids");
         }
     }
 }
