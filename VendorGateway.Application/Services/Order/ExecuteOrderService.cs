@@ -32,17 +32,7 @@ namespace VendorGateway.Application.Services.Order
             }
 
             var order = results.SingleOrDefault();
-            if (!IsUniqueOrder(order))
-            {
-                throw new KeyNotFoundException($"Order with id {id} is not unique for account {accountId}");
-            }
-
             return order!;
-        }
-
-        private static bool IsUniqueOrder(OrderDetails.Order? order)
-        {
-            return order != null;
         }
     }
 }

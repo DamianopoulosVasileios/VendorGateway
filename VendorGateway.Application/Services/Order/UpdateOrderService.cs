@@ -20,9 +20,7 @@ namespace VendorGateway.Application.Services.Order
                 throw new InvalidOperationException("Cannot update an executed order.");
             }
 
-            var productByIds = await CheckIfRequestProductsExist(request, ct);
-
-            var productsWithCategoryIdApplicableToPotentialDiscount = productByIds.Values
+            var productsWithCategoryIdApplicableToPotentialDiscount = productsById.Values
                 .Where(p => p.Category.Equals("women's clothing", StringComparison.OrdinalIgnoreCase))
                 .Select(x => x.Id)
                 .Distinct();
@@ -33,8 +31,8 @@ namespace VendorGateway.Application.Services.Order
 
             foreach (var item in order.Items)
             {
-                if (!productByIds.TryGetValue(item.ProductId, out var product))
-                    throw new KeyNotFoundException($"Product {item.ProductId} not found");
+                if (!productsById.TryGetValue(item.ProductId, out var product))
+                    continue;
 
                 var newItem = request.Items.FirstOrDefault(x => x.ProductId == item.ProductId);
                 if (newItem != null)
@@ -47,7 +45,7 @@ namespace VendorGateway.Application.Services.Order
                 }
             }
 
-            await orderCommands.UpdateAsync(request.AccountId, order, ct);
+            await orderCommands.UpdateAsync(accountId, order, ct);
         }
 
 
@@ -56,22 +54,6 @@ namespace VendorGateway.Application.Services.Order
             var account = await accountQueries.GetByIdsAsync([accountId], ct);
             if (account == null || account.Count == 0)
                 throw new KeyNotFoundException($"Account with id {accountId} not found.");
-        }
-
-        private async Task<Dictionary<int, Entities.Product>> CheckIfRequestProductsExist(UpdateOrder request, CancellationToken ct)
-        {
-            var products = await productQueries.GetByIdsAsync(request.Items.Select(x => x.ProductId), ct);
-            var productsById = products.ToDictionary(p => p.Id);
-
-            var missingProductIds = request.Items
-                .Select(i => i.ProductId)
-                .Except(productsById.Keys)
-                .ToList();
-
-            if (missingProductIds.Count > 0)
-                throw new KeyNotFoundException($"The following product ids were not found: {string.Join(", ", missingProductIds)}.");
-
-            return productsById;
         }
 
         private async Task<Dictionary<int, Entities.Product>> CheckIfProductsExist(UpdateOrder request, CancellationToken ct)
@@ -98,17 +80,7 @@ namespace VendorGateway.Application.Services.Order
             }
 
             var order = results.SingleOrDefault();
-            if (!IsUniqueOrder(order))
-            {
-                throw new KeyNotFoundException($"Order with id {id} is not unique for account {accountId}");
-            }
-
             return order!;
-        }
-
-        private static bool IsUniqueOrder(OrderDetails.Order? order)
-        {
-            return order != null;
         }
     }
 }

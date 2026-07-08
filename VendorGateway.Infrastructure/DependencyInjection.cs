@@ -12,7 +12,7 @@ namespace VendorGateway.Infrastructure.Dependencies
 {
     public static class DependencyInjection
     {
-        public static IServiceCollection AddServicesFromInfrastructure(this IServiceCollection services, string mode, string connString)
+        public static IServiceCollection AddServicesFromInfrastructure(this IServiceCollection services, string mode)
         {
             services.AddScoped<IAccountQueries, AccountQueries>();
             services.AddScoped<IAccountCommands, AccountCommands>();
@@ -22,8 +22,6 @@ namespace VendorGateway.Infrastructure.Dependencies
             services.AddScoped<IOrderCommands, OrderCommands>();
 
             services.AddExceptionClassifierInfrastructure();
-
-            services.AddInfrastructure(connString);
 
             var dbPath = GetPath(mode);
 
@@ -35,12 +33,6 @@ namespace VendorGateway.Infrastructure.Dependencies
         public static IServiceCollection AddExceptionClassifierInfrastructure(this IServiceCollection services)
         {
             services.AddSingleton<IDbExceptionClassifier, SqlServerExceptionClassifier>();
-            return services;
-        }
-
-        public static IServiceCollection AddInfrastructure(this IServiceCollection services, string connString)
-        {
-            services.AddDbContext<AppDbContext>(options => options.UseSqlite(connString));
             return services;
         }
 
