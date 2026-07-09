@@ -1,4 +1,8 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="FlowChart.txt" />
+    <File Path="README.md" />
+  </Folder>
   <Project Path="VendorGateway.API/VendorGateway.API.csproj" />
   <Project Path="VendorGateway.Application/VendorGateway.Application.csproj" Id="a505a8c3-e45b-49db-8c1f-06a296286e26" />
   <Project Path="VendorGateway.Infrastructure/VendorGateway.Infrastructure.csproj" />

@@ -1,0 +1,90 @@
+                         HTTP REQUEST
+                              |
+                              v
++------------------------------------------------+
+|              VendorGateway.API                 |
+|                                                |
+| Controllers                                    |
+|                                                |
+| AccountsController                             |
+| OrdersController                               |
+| ProductsController                              |
++------------------------------------------------+
+          |
+          | calls use case services
+          v
+
++------------------------------------------------+
+|          VendorGateway.Application              |
+|                                                |
+|              Use Cases / Services               |
+|                                                |
+| Account                                        |
+|   CreateAccountService                         |
+|   UpdateAccountService                         |
+|   GetAccountService                            |
+|   DeleteAccountService                         |
+|                                                |
+| Order                                          |
+|   CreateOrderService                           |
+|   UpdateOrderService                           |
+|   GetOrderService                              |
+|   DeleteOrderService                           |
+|   ExecuteOrderService                          |
+|                                                |
+| Product                                        |
+|   CreateProductService                         |
+|   GetProductService                            |
+|   DeleteProductService                         |
++------------------------------------------------+
+          |
+          |
+          | business rules
+          | validations
+          | calculations
+          |
+          v
+
++------------------------------------------------+
+|          Application Interfaces                 |
+|                                                |
+| Commands / Queries                              |
+|                                                |
+| IAccountCommands                               |
+| IAccountQueries                                |
+| IOrderCommands                                 |
+| IOrderQueries                                  |
+| IProductCommands                               |
+| IProductQueries                                |
++------------------------------------------------+
+          |
+          |
+          v
+
++------------------------------------------------+
+|          VendorGateway.Infrastructure           |
+|                                                |
+| Repository Implementations                      |
+|                                                |
+| Account                                        |
+|   AccountCommands                              |
+|   AccountQueries                               |
+|                                                |
+| Order                                          |
+|   OrderCommands                                |
+|   OrderQueries                                 |
+|                                                |
+| Product                                        |
+|   ProductCommands                              |
+|   ProductQueries                               |
++------------------------------------------------+
+          |
+          v
+
++------------------------------------------------+
+|                 Persistence                     |
+|                                                |
+| AppDbContext                                   |
+|                                                |
+| SQL Database                                   |
++------------------------------------------------+
