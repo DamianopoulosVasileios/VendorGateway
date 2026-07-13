@@ -28,7 +28,8 @@ namespace VendorGateway.Infrastructure.Dependencies
 
             var dbPath = GetPath(mode);
 
-            services.AddDbContext<AppDbContext>(options => options.UseSqlite($"Data Source={dbPath}"));
+            services.AddDbContext<AppDbContext>(options =>
+                    options.UseSqlite($"Data Source={dbPath}"));
 
             return services;
         }
