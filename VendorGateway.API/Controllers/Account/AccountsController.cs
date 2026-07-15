@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using System.Text.Json;
 using VendorGateway.API.Contracts.Account.Requests;
 using VendorGateway.API.Contracts.Account.Responses;
@@ -10,20 +12,22 @@ using static VendorGateway.Application.Jobs.DTOs.AsynchronousAPI;
 
 namespace VendorGateway.API.Controllers.Account
 {
+    [Authorize(Policy = "ExistingUser")]
     [ApiController]
     [Route("api/[controller]")]
     public class AccountsController(IJobCommands jobCommands) : ControllerBase
     {
-        [HttpGet("{id:int}")]
-        public async Task<IActionResult> GetAccount([FromServices] IGetAccountService getAccountService, int id, CancellationToken ct)
+        [HttpGet]
+        public async Task<IActionResult> GetAccount([FromServices] IGetAccountService getAccountService, CancellationToken ct)
         {
-            var result = await getAccountService.GetAsync(id, ct);
+            var result = await getAccountService.GetAsync(userId, ct);
             var mappedResponse = new ApiGetAccountResponse(result!.Id, result.Email, result.Orders, result.CreatedAt, result.UpdatedAt);
             return Ok(mappedResponse);
         }
 
+        [AllowAnonymous]
         [HttpPost]
-        public async Task<IActionResult> CreateAccount([FromServices] ICreateAccountService createAccountService, ApiCreateAccountRequest request, CancellationToken ct)
+        public async Task<IActionResult> CreateAccount(ApiCreateAccountRequest request, CancellationToken ct)
         {
             var mappedRequest = new CreateAccountRequest(request.id, request.email);
             var payload = new CreateAccountJobPayload(mappedRequest);
@@ -31,23 +35,20 @@ namespace VendorGateway.API.Controllers.Account
 
             await jobCommands.CreateAsync(job, ct);
             return Accepted();
-
-            //await createAccountService.CreateAsync(mapped, ct);
-            //return Ok();
         }
 
-        [HttpPut("{id:int}")]
-        public async Task<IActionResult> UpdateAccount([FromServices] IUpdateAccountService updateAccountService, int id, ApiUpdateAccountRequest request, CancellationToken ct)
+        [HttpPut]
+        public async Task<IActionResult> UpdateAccount([FromServices] IUpdateAccountService updateAccountService, ApiUpdateAccountRequest request, CancellationToken ct)
         {
-            var mapped = new UpdateAccountRequest(request.id);
-            await updateAccountService.UpdateAsync(mapped, id, ct);
+            var mapped = new UpdateAccountRequest();
+            await updateAccountService.UpdateAsync(mapped, userId, ct);
             return Ok();
         }
 
-        [HttpDelete("{id:int}")]
-        public async Task<IActionResult> DeleteAccount([FromServices] IDeleteAccountService deleteAccountService, int id, CancellationToken ct)
+        [HttpDelete]
+        public async Task<IActionResult> DeleteAccount([FromServices] IDeleteAccountService deleteAccountService, CancellationToken ct)
         {
-            await deleteAccountService.DeleteAsync(id, ct);
+            await deleteAccountService.DeleteAsync(userId, ct);
             return Ok();
         }
     }

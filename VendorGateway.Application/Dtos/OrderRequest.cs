@@ -2,8 +2,8 @@
 {
     public class OrderRequest
     {
-        public sealed record CreateOrder(int AccountId, IReadOnlyList<OrderItems> Items);
-        public sealed record UpdateOrder(int AccountId, IReadOnlyList<OrderItems> Items);
+        public sealed record CreateOrder(IReadOnlyList<OrderItems> Items);
+        public sealed record UpdateOrder(IReadOnlyList<OrderItems> Items);
         public sealed record OrderItems(int ProductId, int Quantity);
     }
 }

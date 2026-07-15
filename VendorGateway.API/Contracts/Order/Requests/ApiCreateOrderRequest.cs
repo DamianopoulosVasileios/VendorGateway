@@ -5,9 +5,6 @@ namespace VendorGateway.API.Contracts.Order.Requests
 {
     public sealed class ApiCreateOrderRequest
     {
-        [Required]
-        public int AccountId { get; set; }
-
         [Required, MinLength(1, ErrorMessage = "An order must contain at least one item.")]
         public IReadOnlyList<ApiOrderItemRequest> Items { get; init; } = [];
 

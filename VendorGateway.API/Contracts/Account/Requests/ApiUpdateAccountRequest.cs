@@ -1,4 +1,4 @@
 ﻿namespace VendorGateway.API.Contracts.Account.Requests
 {
-    public sealed record ApiUpdateAccountRequest(int id);
+    public sealed record ApiUpdateAccountRequest();
 }

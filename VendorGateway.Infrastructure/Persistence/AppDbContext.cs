@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using VendorGateway.Application.Dtos;
 using VendorGateway.Application.Interfaces;
-using VendorGateway.Application.Jobs.Entities;
 
 namespace VendorGateway.Infrastructure.Persistence
 {
@@ -18,7 +18,8 @@ namespace VendorGateway.Infrastructure.Persistence
         public DbSet<Application.Entities.Account> Accounts => Set<Application.Entities.Account>();
         public DbSet<Application.Entities.Order> Orders => Set<Application.Entities.Order>();
         public DbSet<Application.Entities.OrderItem> OrderItems => Set<Application.Entities.OrderItem>();
-        public DbSet<Job> Jobs => Set<Application.Jobs.Entities.Job>();
+        public DbSet<Application.Jobs.Entities.Job> Jobs => Set<Application.Jobs.Entities.Job>();
+        public DbSet<User> Users { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -60,23 +61,23 @@ namespace VendorGateway.Infrastructure.Persistence
                 .WithMany()
                 .HasForeignKey(oi => oi.ProductId);
 
-            modelBuilder.Entity<Job>()
+            modelBuilder.Entity<Application.Jobs.Entities.Job>()
                 .HasKey(x => x.Id);
 
-            modelBuilder.Entity<Job>()
+            modelBuilder.Entity<Application.Jobs.Entities.Job>()
                 .Property(x => x.Id)
                 .ValueGeneratedNever();
 
-            modelBuilder.Entity<Job>()
+            modelBuilder.Entity<Application.Jobs.Entities.Job>()
                 .HasIndex(x => new { x.Status, x.CreatedAt });
 
-            modelBuilder.Entity<Job>()
+            modelBuilder.Entity<Application.Jobs.Entities.Job>()
                 .Property(x => x.CreatedAt)
                 .HasConversion(
                     v => v.UtcDateTime,
                     v => new DateTimeOffset(v, TimeSpan.Zero));
 
-            modelBuilder.Entity<Job>()
+            modelBuilder.Entity<Application.Jobs.Entities.Job>()
                 .Property(x => x.UpdatedAt)
                 .HasConversion(
                     v => v.UtcDateTime,

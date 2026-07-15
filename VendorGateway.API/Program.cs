@@ -1,13 +1,20 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using Polly;
 using Serilog;
+using System.Text;
 using System.Threading.RateLimiting;
+using VendorGateway.API;
 using VendorGateway.API.Filters;
 using VendorGateway.Application.DependencyInjection;
+using VendorGateway.Application.Dtos.Authentication;
 using VendorGateway.Application.Interfaces.ApiClient;
+using VendorGateway.Application.Interfaces.CommandsQueries;
 using VendorGateway.Infrastructure.API;
 using VendorGateway.Infrastructure.APIs;
 using VendorGateway.Infrastructure.APIs.Configuration;
@@ -15,6 +22,7 @@ using VendorGateway.Infrastructure.Dependencies;
 using VendorGateway.Infrastructure.Enums;
 using VendorGateway.Infrastructure.Helpers;
 using VendorGateway.Infrastructure.Persistence;
+using VendorGateway.Infrastructure.Repositories.Authorization;
 
 var config = new ConfigurationBuilder()
     .AddJsonFile("appsettings.json")
@@ -35,9 +43,27 @@ builder.Services.AddOpenApiDocument(config =>
 {
     config.Title = "Vendor Gateway API";
     config.OperationProcessors.Add(new IdempotencyKeyHeaderOperationProcessor());
+
+    var jwtScheme = new NSwag.OpenApiSecurityScheme
+    {
+        Type = NSwag.OpenApiSecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Description = "Paste just the raw JWT token (no 'Bearer' prefix needed)."
+    };
+
+    config.AddSecurity("JWT", jwtScheme);
+
+    config.DocumentProcessors.Add(
+        new NSwag.Generation.Processors.Security.SecurityDefinitionAppender(
+            "JWT", new[] { "JWT" }, jwtScheme));
+
 });
 
+
 AddConfiguration(builder);
+
+RegisterAndConfigureAuthorization(builder);
 
 AddLogger(builder);
 
@@ -61,11 +87,13 @@ EnableSwagger(app);
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
+
 app.UseAuthorization();
 
-app.MapControllers().RequireRateLimiting("fixed");
-
 app.UseRateLimiter();
+
+app.MapControllers().RequireRateLimiting("fixed");
 
 app.Run();
 
@@ -86,12 +114,14 @@ static void RegisterServices(WebApplicationBuilder builder)
 static void AddConfiguration(WebApplicationBuilder builder)
 {
     builder.Services.Configure<VendorSettings>(builder.Configuration.GetSection(nameof(VendorSettings)));
+    builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection(nameof(JwtSettings)));
 }
 
 static void SetupHttpClient(WebApplicationBuilder builder)
 {
-    var serviceProvider = builder.Services.BuildServiceProvider();
-    var settings = serviceProvider.GetRequiredService<IOptions<VendorSettings>>().Value;
+    var settings = builder.Configuration.GetSection(nameof(VendorSettings)).Get<VendorSettings>()
+                ?? throw new InvalidDataException("Cannot read vendor settings from configuration.");
+
     foreach (var vendor in settings.VendorDetails.DistinctBy(x => x.Name))
     {
         builder.Services
@@ -218,4 +248,45 @@ static void AddLogger(WebApplicationBuilder builder)
     {
         configuration.ReadFrom.Configuration(context.Configuration);
     });
+}
+
+static void RegisterAndConfigureAuthorization(WebApplicationBuilder builder)
+{
+    builder.Services.AddScoped<IAuthorizationQueries, AuthorizationQueries>();
+    builder.Services.AddScoped<IAuthorizationCommands, AuthorizationCommands>();
+    builder.Services.AddScoped<IAuthorizationHandler, ExistingUserHandler>();
+
+    builder.Services.AddAuthorization(options =>
+    {
+        options.FallbackPolicy = options.DefaultPolicy;
+
+        options.AddPolicy("ExistingUser", policy =>
+        {
+            policy.RequireAuthenticatedUser();
+            policy.AddRequirements(
+                new ExistingUserRequirement());
+        });
+
+    });
+
+    builder.Services
+        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(options =>
+        {
+            var jwtSettings = builder.Configuration.GetSection(nameof(JwtSettings)).Get<JwtSettings>()
+                ?? throw new InvalidDataException("Cannot read authentication details from configuration.");
+
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+
+                ValidIssuer = jwtSettings.Issuer,
+                ValidAudience = jwtSettings.Audience,
+
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecretKey))
+            };
+        });
 }

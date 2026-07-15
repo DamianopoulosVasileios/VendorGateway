@@ -8,12 +8,12 @@ namespace VendorGateway.API.Mappers
     {
         public static CreateOrder ToDto(this ApiCreateOrderRequest request)
         {
-            return new CreateOrder(request.AccountId, request.Items.Select(i => new OrderItems(i.ProductId, i.Quantity)).ToList());
+            return new CreateOrder(request.Items.Select(i => new OrderItems(i.ProductId, i.Quantity)).ToList());
         }
 
         public static UpdateOrder ToDto(this ApiUpdateOrderRequest request)
         {
-            return new UpdateOrder(request.AccountId, request.Items.Select(i => new OrderItems(i.ProductId, i.Quantity)).ToList());
+            return new UpdateOrder(request.Items.Select(i => new OrderItems(i.ProductId, i.Quantity)).ToList());
         }
 
         public static OrderResponse.GetOrder ToApiResponse(this OrderDetails.Order order)

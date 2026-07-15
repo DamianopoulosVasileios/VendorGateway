@@ -6,8 +6,8 @@ namespace VendorGateway.Application.Jobs.DTOs
     {
         #region Account
         public sealed record CreateAccountJobPayload(CreateAccountRequest Request);
-        public sealed record UpdateAccountJobPayload(int Id, UpdateAccountRequest Request);
-        public sealed record DeleteAccountJobPayload(int Id);
+        public sealed record UpdateAccountJobPayload(UpdateAccountRequest Request);
+        public sealed record DeleteAccountJobPayload();
         #endregion
 
         #region Order
