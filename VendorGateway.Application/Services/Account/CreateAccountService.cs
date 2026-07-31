@@ -7,15 +7,15 @@ namespace VendorGateway.Application.Services.Account
 {
     public class CreateAccountService(IAccountsApiClient usersApiClient, IAccountCommands accountCommands) : ICreateAccountService
     {
-        public async Task CreateAsync(CreateAccountRequest request, CancellationToken ct)
+        public async Task CreateAsync(CreateAccountRequest request, int id, CancellationToken ct)
         {
-            var results = await usersApiClient.CreateAsync(request, ct);
+            var results = await usersApiClient.CreateAsync(request, id, ct);
             if (results.id == 0)
             {
-                throw new InvalidOperationException($"The account {request.id} could not be saved at vendor");
+                throw new InvalidOperationException($"The account {id} could not be saved at vendor");
             }
 
-            await accountCommands.CreateAsync(request.id, request.email, ct);
+            await accountCommands.CreateAsync(id, request.email, ct);
         }
     }
 }

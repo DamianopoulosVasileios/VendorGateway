@@ -1,10 +1,11 @@
-﻿using AutoFixture;
+using AutoFixture;
 using AutoFixture.AutoMoq;
 using FluentAssertions;
 using Moq;
 using VendorGateway.Application.Dtos;
 using VendorGateway.Application.Enums;
 using VendorGateway.Application.Interfaces.CommandsQueries;
+using VendorGateway.Application.Interfaces.Services;
 using VendorGateway.Application.Services.Order;
 
 namespace VendorGateway.Tests.Order
@@ -50,7 +51,7 @@ namespace VendorGateway.Tests.Order
     public class CreateOrderServiceTests
     {
         private readonly IFixture _fixture;
-        private readonly Mock<IAccountQueries> _accountQueriesMock;
+        private readonly Mock<IAccountExistenceGuard> _accountExistenceGuardMock;
         private readonly Mock<IProductQueries> _productQueriesMock;
         private readonly Mock<IOrderQueries> _orderQueriesMock;
         private readonly Mock<IOrderCommands> _orderCommandsMock;
@@ -59,21 +60,26 @@ namespace VendorGateway.Tests.Order
         public CreateOrderServiceTests()
         {
             _fixture = new Fixture().Customize(new AutoMoqCustomization());
-            _accountQueriesMock = _fixture.Freeze<Mock<IAccountQueries>>();
+            _accountExistenceGuardMock = _fixture.Freeze<Mock<IAccountExistenceGuard>>();
             _productQueriesMock = _fixture.Freeze<Mock<IProductQueries>>();
             _orderQueriesMock = _fixture.Freeze<Mock<IOrderQueries>>();
             _orderCommandsMock = _fixture.Freeze<Mock<IOrderCommands>>();
             _sut = new CreateOrderService(
-                _accountQueriesMock.Object,
+                _accountExistenceGuardMock.Object,
                 _productQueriesMock.Object,
                 _orderQueriesMock.Object,
                 _orderCommandsMock.Object);
         }
 
         private void SetupAccountExists(int accountId) =>
-            _accountQueriesMock
-                .Setup(q => q.GetByIdsAsync(new[] { accountId }, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new List<Application.Entities.Account> { new() { Id = accountId } });
+            _accountExistenceGuardMock
+                .Setup(g => g.EnsureExistsAsync(accountId, It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+        private void SetupAccountDoesNotExist(int accountId) =>
+            _accountExistenceGuardMock
+                .Setup(g => g.EnsureExistsAsync(accountId, It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new KeyNotFoundException($"Account with id {accountId} not found."));
 
         private void SetupProducts(params Application.Entities.Product[] products) =>
             _productQueriesMock
@@ -93,7 +99,7 @@ namespace VendorGateway.Tests.Order
             var womens = TestData.Product(10, "women's clothing", 20f);
             var jewelery = TestData.Product(20, "jewelery", 100f);
 
-            var request = new OrderRequest.CreateOrder(accountId, new List<OrderRequest.OrderItems>
+            var request = new OrderRequest.CreateOrder(new List<OrderRequest.OrderItems>
             {
                 new(womens.Id, 2), // below the 5-unit discount threshold
                 new(jewelery.Id, 1)
@@ -111,7 +117,7 @@ namespace VendorGateway.Tests.Order
 
             using var cts = new CancellationTokenSource();
 
-            await _sut.CreateAsync(idempotencyKey, request, cts.Token);
+            await _sut.CreateAsync(accountId, idempotencyKey, request, cts.Token);
 
             capturedItems.Should().BeEquivalentTo(new[]
             {
@@ -132,7 +138,7 @@ namespace VendorGateway.Tests.Order
             var womens = TestData.Product(10, "women's clothing", 20f);
             var jewelery = TestData.Product(20, "jewelery", 100f);
 
-            var request = new OrderRequest.CreateOrder(accountId, new List<OrderRequest.OrderItems>
+            var request = new OrderRequest.CreateOrder(new List<OrderRequest.OrderItems>
             {
                 new(womens.Id, 5), // meets the >= 5 threshold
                 new(jewelery.Id, 1)
@@ -148,7 +154,7 @@ namespace VendorGateway.Tests.Order
                 .Callback<int, Guid, List<OrderDetails.OrderItem>, CancellationToken>((_, _, items, _) => capturedItems = items)
                 .Returns(Task.CompletedTask);
 
-            await _sut.CreateAsync(idempotencyKey, request, CancellationToken.None);
+            await _sut.CreateAsync(accountId, idempotencyKey, request, CancellationToken.None);
 
             capturedItems.Should().NotBeNull();
             capturedItems!.Single(i => i.ProductId == womens.Id).UnitPrice.Should().Be(20f); // not jewelery -> untouched
@@ -159,13 +165,11 @@ namespace VendorGateway.Tests.Order
         public async Task CreateAsync_AccountDoesNotExist_ThrowsKeyNotFoundException_AndNeverChecksProductsOrOrders()
         {
             var accountId = _fixture.Create<int>();
-            var request = new OrderRequest.CreateOrder(accountId, new List<OrderRequest.OrderItems> { new(1, 1) });
+            var request = new OrderRequest.CreateOrder(new List<OrderRequest.OrderItems> { new(1, 1) });
 
-            _accountQueriesMock
-                .Setup(q => q.GetByIdsAsync(new[] { accountId }, It.IsAny<CancellationToken>()))
-                .ReturnsAsync([]);
+            SetupAccountDoesNotExist(accountId);
 
-            var act = () => _sut.CreateAsync(Guid.NewGuid(), request, CancellationToken.None);
+            var act = () => _sut.CreateAsync(accountId, Guid.NewGuid(), request, CancellationToken.None);
 
             await act.Should().ThrowAsync<KeyNotFoundException>().WithMessage($"*{accountId}*");
 
@@ -178,12 +182,12 @@ namespace VendorGateway.Tests.Order
         public async Task CreateAsync_RequestedProductDoesNotExist_ThrowsKeyNotFoundException_AndNeverChecksOrdersOrCreates()
         {
             var accountId = _fixture.Create<int>();
-            var request = new OrderRequest.CreateOrder(accountId, new List<OrderRequest.OrderItems> { new(999, 1) });
+            var request = new OrderRequest.CreateOrder(new List<OrderRequest.OrderItems> { new(999, 1) });
 
             SetupAccountExists(accountId);
             SetupProducts(); // no products returned -> 999 is missing
 
-            var act = () => _sut.CreateAsync(Guid.NewGuid(), request, CancellationToken.None);
+            var act = () => _sut.CreateAsync(accountId, Guid.NewGuid(), request, CancellationToken.None);
 
             await act.Should().ThrowAsync<KeyNotFoundException>().WithMessage("*999*");
 
@@ -196,7 +200,7 @@ namespace VendorGateway.Tests.Order
         {
             var accountId = _fixture.Create<int>();
             var product = TestData.Product(10, "electronics", 50f);
-            var request = new OrderRequest.CreateOrder(accountId, new List<OrderRequest.OrderItems> { new(product.Id, 1) });
+            var request = new OrderRequest.CreateOrder(new List<OrderRequest.OrderItems> { new(product.Id, 1) });
 
             SetupAccountExists(accountId);
             SetupProducts(product);
@@ -211,7 +215,7 @@ namespace VendorGateway.Tests.Order
                 .Setup(q => q.GetAsync(accountId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync([pendingOrder]);
 
-            var act = () => _sut.CreateAsync(Guid.NewGuid(), request, CancellationToken.None);
+            var act = () => _sut.CreateAsync(accountId, Guid.NewGuid(), request, CancellationToken.None);
 
             await act.Should().ThrowAsync<InvalidOperationException>();
 
@@ -225,7 +229,7 @@ namespace VendorGateway.Tests.Order
         {
             var accountId = _fixture.Create<int>();
             var product = TestData.Product(10, "electronics", 50f);
-            var request = new OrderRequest.CreateOrder(accountId, new List<OrderRequest.OrderItems> { new(product.Id, 1) });
+            var request = new OrderRequest.CreateOrder(new List<OrderRequest.OrderItems> { new(product.Id, 1) });
 
             SetupAccountExists(accountId);
             SetupProducts(product);
@@ -244,7 +248,7 @@ namespace VendorGateway.Tests.Order
                 .Setup(c => c.CreateAsync(accountId, It.IsAny<Guid>(), It.IsAny<List<OrderDetails.OrderItem>>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
-            var act = () => _sut.CreateAsync(Guid.NewGuid(), request, CancellationToken.None);
+            var act = () => _sut.CreateAsync(accountId, Guid.NewGuid(), request, CancellationToken.None);
 
             await act.Should().NotThrowAsync();
         }
@@ -256,16 +260,16 @@ namespace VendorGateway.Tests.Order
     public class DeleteOrderServiceTests
     {
         private readonly IFixture _fixture;
-        private readonly Mock<IAccountQueries> _accountQueriesMock;
+        private readonly Mock<IAccountExistenceGuard> _accountExistenceGuardMock;
         private readonly Mock<IOrderCommands> _orderCommandsMock;
         private readonly DeleteOrderService _sut;
 
         public DeleteOrderServiceTests()
         {
             _fixture = new Fixture().Customize(new AutoMoqCustomization());
-            _accountQueriesMock = _fixture.Freeze<Mock<IAccountQueries>>();
+            _accountExistenceGuardMock = _fixture.Freeze<Mock<IAccountExistenceGuard>>();
             _orderCommandsMock = _fixture.Freeze<Mock<IOrderCommands>>();
-            _sut = new DeleteOrderService(_accountQueriesMock.Object, _orderCommandsMock.Object);
+            _sut = new DeleteOrderService(_accountExistenceGuardMock.Object, _orderCommandsMock.Object);
         }
 
         [Fact]
@@ -274,9 +278,9 @@ namespace VendorGateway.Tests.Order
             var accountId = _fixture.Create<int>();
             var orderId = _fixture.Create<int>();
 
-            _accountQueriesMock
-                .Setup(q => q.GetByIdsAsync(new[] { accountId }, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new List<Application.Entities.Account> { new() { Id = accountId } });
+            _accountExistenceGuardMock
+                .Setup(g => g.EnsureExistsAsync(accountId, It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
 
             using var cts = new CancellationTokenSource();
 
@@ -291,9 +295,9 @@ namespace VendorGateway.Tests.Order
             var accountId = _fixture.Create<int>();
             var orderId = _fixture.Create<int>();
 
-            _accountQueriesMock
-                .Setup(q => q.GetByIdsAsync(new[] { accountId }, It.IsAny<CancellationToken>()))
-                .ReturnsAsync([]);
+            _accountExistenceGuardMock
+                .Setup(g => g.EnsureExistsAsync(accountId, It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new KeyNotFoundException($"Account with id {accountId} not found."));
 
             var act = () => _sut.DeleteAsync(accountId, orderId, CancellationToken.None);
 
@@ -308,9 +312,9 @@ namespace VendorGateway.Tests.Order
             var accountId = _fixture.Create<int>();
             var orderId = _fixture.Create<int>();
 
-            _accountQueriesMock
-                .Setup(q => q.GetByIdsAsync(new[] { accountId }, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new List<Application.Entities.Account> { new() { Id = accountId } });
+            _accountExistenceGuardMock
+                .Setup(g => g.EnsureExistsAsync(accountId, It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
 
             _orderCommandsMock
                 .Setup(c => c.DeleteByIdAsync(accountId, orderId, It.IsAny<CancellationToken>()))
@@ -328,7 +332,7 @@ namespace VendorGateway.Tests.Order
     public class ExecuteOrderServiceTests
     {
         private readonly IFixture _fixture;
-        private readonly Mock<IAccountQueries> _accountQueriesMock;
+        private readonly Mock<IAccountExistenceGuard> _accountExistenceGuardMock;
         private readonly Mock<IOrderQueries> _orderQueriesMock;
         private readonly Mock<IOrderCommands> _orderCommandsMock;
         private readonly ExecuteOrderService _sut;
@@ -336,16 +340,16 @@ namespace VendorGateway.Tests.Order
         public ExecuteOrderServiceTests()
         {
             _fixture = new Fixture().Customize(new AutoMoqCustomization());
-            _accountQueriesMock = _fixture.Freeze<Mock<IAccountQueries>>();
+            _accountExistenceGuardMock = _fixture.Freeze<Mock<IAccountExistenceGuard>>();
             _orderQueriesMock = _fixture.Freeze<Mock<IOrderQueries>>();
             _orderCommandsMock = _fixture.Freeze<Mock<IOrderCommands>>();
-            _sut = new ExecuteOrderService(_accountQueriesMock.Object, _orderQueriesMock.Object, _orderCommandsMock.Object);
+            _sut = new ExecuteOrderService(_accountExistenceGuardMock.Object, _orderQueriesMock.Object, _orderCommandsMock.Object);
         }
 
         private void SetupAccountExists(int accountId) =>
-            _accountQueriesMock
-                .Setup(q => q.GetByIdsAsync(new[] { accountId }, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new List<Application.Entities.Account> { new() { Id = accountId } });
+            _accountExistenceGuardMock
+                .Setup(g => g.EnsureExistsAsync(accountId, It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
 
         [Fact]
         public async Task ExecuteAsync_OrderExists_ExecutesUsingOrderAccountAndOrderId()
@@ -372,9 +376,9 @@ namespace VendorGateway.Tests.Order
             var accountId = _fixture.Create<int>();
             var orderId = _fixture.Create<int>();
 
-            _accountQueriesMock
-                .Setup(q => q.GetByIdsAsync(new[] { accountId }, It.IsAny<CancellationToken>()))
-                .ReturnsAsync([]);
+            _accountExistenceGuardMock
+                .Setup(g => g.EnsureExistsAsync(accountId, It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new KeyNotFoundException($"Account with id {accountId} not found."));
 
             var act = () => _sut.ExecuteAsync(accountId, orderId, CancellationToken.None);
 
@@ -438,22 +442,22 @@ namespace VendorGateway.Tests.Order
     public class GetOrderServiceTests
     {
         private readonly IFixture _fixture;
-        private readonly Mock<IAccountQueries> _accountQueriesMock;
+        private readonly Mock<IAccountExistenceGuard> _accountExistenceGuardMock;
         private readonly Mock<IOrderQueries> _orderQueriesMock;
         private readonly GetOrderService _sut;
 
         public GetOrderServiceTests()
         {
             _fixture = new Fixture().Customize(new AutoMoqCustomization());
-            _accountQueriesMock = _fixture.Freeze<Mock<IAccountQueries>>();
+            _accountExistenceGuardMock = _fixture.Freeze<Mock<IAccountExistenceGuard>>();
             _orderQueriesMock = _fixture.Freeze<Mock<IOrderQueries>>();
-            _sut = new GetOrderService(_accountQueriesMock.Object, _orderQueriesMock.Object);
+            _sut = new GetOrderService(_accountExistenceGuardMock.Object, _orderQueriesMock.Object);
         }
 
         private void SetupAccountExists(int accountId) =>
-            _accountQueriesMock
-                .Setup(q => q.GetByIdsAsync(new[] { accountId }, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new List<Application.Entities.Account> { new() { Id = accountId } });
+            _accountExistenceGuardMock
+                .Setup(g => g.EnsureExistsAsync(accountId, It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
 
         [Fact]
         public async Task GetAsync_OrderExists_ReturnsIt()
@@ -481,9 +485,9 @@ namespace VendorGateway.Tests.Order
             var accountId = _fixture.Create<int>();
             var orderId = _fixture.Create<int>();
 
-            _accountQueriesMock
-                .Setup(q => q.GetByIdsAsync(new[] { accountId }, It.IsAny<CancellationToken>()))
-                .ReturnsAsync([]);
+            _accountExistenceGuardMock
+                .Setup(g => g.EnsureExistsAsync(accountId, It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new KeyNotFoundException($"Account with id {accountId} not found."));
 
             var act = () => _sut.GetAsync(accountId, orderId, CancellationToken.None);
 
@@ -515,7 +519,7 @@ namespace VendorGateway.Tests.Order
     public class UpdateOrderServiceTests
     {
         private readonly IFixture _fixture;
-        private readonly Mock<IAccountQueries> _accountQueriesMock;
+        private readonly Mock<IAccountExistenceGuard> _accountExistenceGuardMock;
         private readonly Mock<IProductQueries> _productQueriesMock;
         private readonly Mock<IOrderQueries> _orderQueriesMock;
         private readonly Mock<IOrderCommands> _orderCommandsMock;
@@ -524,21 +528,21 @@ namespace VendorGateway.Tests.Order
         public UpdateOrderServiceTests()
         {
             _fixture = new Fixture().Customize(new AutoMoqCustomization());
-            _accountQueriesMock = _fixture.Freeze<Mock<IAccountQueries>>();
+            _accountExistenceGuardMock = _fixture.Freeze<Mock<IAccountExistenceGuard>>();
             _productQueriesMock = _fixture.Freeze<Mock<IProductQueries>>();
             _orderQueriesMock = _fixture.Freeze<Mock<IOrderQueries>>();
             _orderCommandsMock = _fixture.Freeze<Mock<IOrderCommands>>();
             _sut = new UpdateOrderService(
-                _accountQueriesMock.Object,
+                _accountExistenceGuardMock.Object,
                 _productQueriesMock.Object,
                 _orderQueriesMock.Object,
                 _orderCommandsMock.Object);
         }
 
         private void SetupAccountExists(int accountId) =>
-            _accountQueriesMock
-                .Setup(q => q.GetByIdsAsync(new[] { accountId }, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new List<Application.Entities.Account> { new() { Id = accountId } });
+            _accountExistenceGuardMock
+                .Setup(g => g.EnsureExistsAsync(accountId, It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
 
         private void SetupProducts(params Application.Entities.Product[] products) =>
             _productQueriesMock
@@ -558,7 +562,7 @@ namespace VendorGateway.Tests.Order
             var womens = TestData.Product(10, "women's clothing", 20f);
             var jewelery = TestData.Product(20, "jewelery", 100f);
 
-            var request = new OrderRequest.UpdateOrder(accountId, new List<OrderRequest.OrderItems>
+            var request = new OrderRequest.UpdateOrder(new List<OrderRequest.OrderItems>
             {
                 new(womens.Id, 5), // meets threshold
                 new(jewelery.Id, 3)
@@ -593,7 +597,7 @@ namespace VendorGateway.Tests.Order
             var womens = TestData.Product(10, "women's clothing", 20f);
             var jewelery = TestData.Product(20, "jewelery", 100f);
 
-            var request = new OrderRequest.UpdateOrder(accountId, new List<OrderRequest.OrderItems>
+            var request = new OrderRequest.UpdateOrder(new List<OrderRequest.OrderItems>
             {
                 new(womens.Id, 2), // below threshold
                 new(jewelery.Id, 1)
@@ -617,11 +621,11 @@ namespace VendorGateway.Tests.Order
         {
             var accountId = _fixture.Create<int>();
             var orderId = _fixture.Create<int>();
-            var request = new OrderRequest.UpdateOrder(accountId, new List<OrderRequest.OrderItems> { new(1, 1) });
+            var request = new OrderRequest.UpdateOrder(new List<OrderRequest.OrderItems> { new(1, 1) });
 
-            _accountQueriesMock
-                .Setup(q => q.GetByIdsAsync(new[] { accountId }, It.IsAny<CancellationToken>()))
-                .ReturnsAsync([]);
+            _accountExistenceGuardMock
+                .Setup(g => g.EnsureExistsAsync(accountId, It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new KeyNotFoundException($"Account with id {accountId} not found."));
 
             var act = () => _sut.UpdateAsync(accountId, orderId, request, CancellationToken.None);
 
@@ -636,7 +640,7 @@ namespace VendorGateway.Tests.Order
         {
             var accountId = _fixture.Create<int>();
             var orderId = _fixture.Create<int>();
-            var request = new OrderRequest.UpdateOrder(accountId, new List<OrderRequest.OrderItems> { new(999, 1) });
+            var request = new OrderRequest.UpdateOrder(new List<OrderRequest.OrderItems> { new(999, 1) });
 
             SetupAccountExists(accountId);
             SetupProducts(); // 999 missing
@@ -655,7 +659,7 @@ namespace VendorGateway.Tests.Order
             var accountId = _fixture.Create<int>();
             var orderId = _fixture.Create<int>();
             var product = TestData.Product(1, "electronics", 10f);
-            var request = new OrderRequest.UpdateOrder(accountId, new List<OrderRequest.OrderItems> { new(product.Id, 1) });
+            var request = new OrderRequest.UpdateOrder(new List<OrderRequest.OrderItems> { new(product.Id, 1) });
 
             SetupAccountExists(accountId);
             SetupProducts(product);
@@ -676,7 +680,7 @@ namespace VendorGateway.Tests.Order
             var accountId = _fixture.Create<int>();
             var orderId = _fixture.Create<int>();
             var product = TestData.Product(1, "electronics", 10f);
-            var request = new OrderRequest.UpdateOrder(accountId, new List<OrderRequest.OrderItems> { new(product.Id, 1) });
+            var request = new OrderRequest.UpdateOrder(new List<OrderRequest.OrderItems> { new(product.Id, 1) });
 
             var submittedOrder = TestData.Order(orderId, accountId, OrderStatus.Submitted,
                 [TestData.OrderItem(product.Id, 1, 10f)]);

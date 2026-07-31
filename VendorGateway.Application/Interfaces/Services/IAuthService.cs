@@ -4,8 +4,8 @@ namespace VendorGateway.Application.Interfaces.Services
 {
     public interface IAuthService
     {
-        Task<string?> LoginAsync(LoginUserRequest request);
-        Task<bool> RegisterAsync(RegisterUserRequest request);
+        Task<string?> LoginAsync(LoginAccountRequest request);
+        Task<bool> RegisterAsync(RegisterUserRequest request, CancellationToken ct);
     }
 
 }

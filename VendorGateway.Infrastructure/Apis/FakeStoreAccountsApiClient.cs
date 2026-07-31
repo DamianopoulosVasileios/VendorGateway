@@ -30,9 +30,9 @@ namespace VendorGateway.Infrastructure.APIs
             return AccountMappers.ToApi(response);
         }
 
-        public async Task<CreateAccountVendorResponse> CreateAsync(CreateAccountRequest apiRequest, CancellationToken ct)
+        public async Task<CreateAccountVendorResponse> CreateAsync(CreateAccountRequest apiRequest, int id, CancellationToken ct)
         {
-            var request = AccountMappers.ToFakeStore(apiRequest);
+            var request = AccountMappers.ToFakeStore(apiRequest, id);
 
             var url = Config.Users.Create;
             var call = await Client.PostAsJsonAsync(url, request, ct);
@@ -43,7 +43,7 @@ namespace VendorGateway.Infrastructure.APIs
 
         public async Task<UpdateAccountVendorResponse> UpdateAsync(UpdateAccountRequest apiRequest, int id, CancellationToken ct)
         {
-            var request = AccountMappers.ToFakeStore(apiRequest);
+            var request = AccountMappers.ToFakeStore(apiRequest, id);
 
             var url = UrlResolver.Resolve(Config.Users.Update, id);
             var call = await Client.PutAsJsonAsync(url, request, ct);

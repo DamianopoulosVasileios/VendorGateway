@@ -4,6 +4,6 @@ namespace VendorGateway.Application.Interfaces.Services
 {
     public interface ICreateOrderService
     {
-        Task CreateAsync(Guid idempotencyKey, OrderRequest.CreateOrder request, CancellationToken ct);
+        Task CreateAsync(int accountId, Guid idempotencyKey, OrderRequest.CreateOrder request, CancellationToken ct);
     }
 }

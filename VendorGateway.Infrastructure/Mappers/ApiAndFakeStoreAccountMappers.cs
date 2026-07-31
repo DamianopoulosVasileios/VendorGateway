@@ -19,13 +19,13 @@ namespace VendorGateway.Infrastructure.Mappers
             return new UpdateAccountVendorResponse(request.id);
         }
 
-        public static FakeStoreCreateAccountRequest ToFakeStore(CreateAccountRequest request)
+        public static FakeStoreCreateAccountRequest ToFakeStore(CreateAccountRequest request, int id)
         {
-            return new FakeStoreCreateAccountRequest(request.id, request.email);
+            return new FakeStoreCreateAccountRequest(id, request.email);
         }
-        public static FakeStoreUpdateAccountRequest ToFakeStore(UpdateAccountRequest request)
+        public static FakeStoreUpdateAccountRequest ToFakeStore(UpdateAccountRequest request, int id)
         {
-            return new FakeStoreUpdateAccountRequest(request.id);
+            return new FakeStoreUpdateAccountRequest(id);
         }
     }
 }

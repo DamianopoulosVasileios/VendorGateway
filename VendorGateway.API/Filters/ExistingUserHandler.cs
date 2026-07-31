@@ -15,11 +15,11 @@ namespace VendorGateway.API.Filters
             AuthorizationHandlerContext context,
             ExistingUserRequirement requirement)
         {
-            var username = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (username == null)
+            var userId = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null || !int.TryParse(userId, out var id))
                 return;
 
-            var user = await authorizationQueries.GetUserByUsernameAsync(username);
+            var user = await authorizationQueries.GetUserByIdAsync(id);
 
             if (user != null)
             {

@@ -104,10 +104,16 @@ static void RegisterServices(WebApplicationBuilder builder)
     builder.Services.AddSingleton(TimeProvider.System);
     builder.Services.AddScoped<IApiResponseReader, ApiResponseReader>();
     var defaultVendor = builder.Configuration["DefaultVendor"];
-    if (defaultVendor == Vendors.FakeStore.ToString())
+
+    switch (defaultVendor)
     {
-        builder.Services.AddScoped<IProductsApiClient, FakeStoreProductsApiClient>();
-        builder.Services.AddScoped<IAccountsApiClient, FakeStoreAccountsApiClient>();
+        case var _ when defaultVendor == Vendors.FakeStore.ToString():
+            builder.Services.AddScoped<IProductsApiClient, FakeStoreProductsApiClient>();
+            builder.Services.AddScoped<IAccountsApiClient, FakeStoreAccountsApiClient>();
+            break;
+        default:
+            throw new InvalidOperationException(
+                $"Unsupported or missing DefaultVendor configuration value: '{defaultVendor}'.");
     }
 }
 
@@ -202,22 +208,31 @@ static void UseGlobalExceptionHandler(WebApplication app)
                 .Get<IExceptionHandlerFeature>()?
                 .Error;
 
-            var message = $"Unhandled exception occurred. Path: {context.Request.Path}. Message: {exception?.InnerException?.Message ?? exception?.Message ?? "Unexpected error"}";
+            var exceptionMessage = exception?.InnerException?.Message ?? exception?.Message ?? "Unexpected error";
 
-            logger.LogError(message);
+            logger.LogError(exception, "Unhandled exception occurred. Path: {Path}. Message: {Message}", context.Request.Path, exceptionMessage);
 
             context.Response.ContentType = "application/json";
 
-            context.Response.StatusCode = exception switch
+            var statusCode = exception switch
             {
                 KeyNotFoundException => StatusCodes.Status404NotFound,
                 ArgumentException => StatusCodes.Status400BadRequest,
+                InvalidDataException => StatusCodes.Status400BadRequest,
+                InvalidOperationException => StatusCodes.Status409Conflict,
                 _ => StatusCodes.Status500InternalServerError
             };
 
+            context.Response.StatusCode = statusCode;
+
+            // Only expose exception details for client-actionable errors; hide internals on genuine server failures.
+            var responseMessage = statusCode == StatusCodes.Status500InternalServerError
+                ? "An unexpected error occurred."
+                : exceptionMessage;
+
             await context.Response.WriteAsJsonAsync(new
             {
-                message
+                message = responseMessage
             });
         });
     });

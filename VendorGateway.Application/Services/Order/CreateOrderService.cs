@@ -5,15 +5,15 @@ using VendorGateway.Application.Interfaces.Services;
 
 namespace VendorGateway.Application.Services.Order
 {
-    public class CreateOrderService(IAccountQueries accountQueries, IProductQueries productQueries, IOrderQueries orderQueries, IOrderCommands orderCommands) : ICreateOrderService
+    public class CreateOrderService(IAccountExistenceGuard accountExistenceGuard, IProductQueries productQueries, IOrderQueries orderQueries, IOrderCommands orderCommands) : ICreateOrderService
     {
-        public async Task CreateAsync(Guid idempotencyKey, OrderRequest.CreateOrder request, CancellationToken ct)
+        public async Task CreateAsync(int accountId, Guid idempotencyKey, OrderRequest.CreateOrder request, CancellationToken ct)
         {
-            await CheckAccountExists(request.AccountId, ct);
+            await accountExistenceGuard.EnsureExistsAsync(accountId, ct);
 
             var productByIds = await CheckIfRequestProductsExist(request, ct);
 
-            await CheckIfOrderProductExistsInAnotherOrderWithStatusPending(request, productByIds, ct);
+            await CheckIfOrderProductExistsInAnotherOrderWithStatusPending(accountId, productByIds, ct);
 
             var productsWithCategoryIdApplicableToPotentialDiscount = productByIds.Values
                 .Where(p => p.Category.Equals("women's clothing", StringComparison.OrdinalIgnoreCase))
@@ -48,14 +48,7 @@ namespace VendorGateway.Application.Services.Order
                 })
                 .ToList();
 
-            await orderCommands.CreateAsync(request.AccountId, idempotencyKey, orderItems, ct);
-        }
-
-        private async Task CheckAccountExists(int accountId, CancellationToken ct)
-        {
-            var account = await accountQueries.GetByIdsAsync([accountId], ct);
-            if (account == null || account.Count == 0)
-                throw new KeyNotFoundException($"Account with id {accountId} not found.");
+            await orderCommands.CreateAsync(accountId, idempotencyKey, orderItems, ct);
         }
 
         private async Task<Dictionary<int, Entities.Product>> CheckIfRequestProductsExist(OrderRequest.CreateOrder request, CancellationToken ct)
@@ -74,9 +67,9 @@ namespace VendorGateway.Application.Services.Order
             return productsById;
         }
 
-        private async Task CheckIfOrderProductExistsInAnotherOrderWithStatusPending(OrderRequest.CreateOrder request, Dictionary<int, Entities.Product> productByIds, CancellationToken ct)
+        private async Task CheckIfOrderProductExistsInAnotherOrderWithStatusPending(int accountId, Dictionary<int, Entities.Product> productByIds, CancellationToken ct)
         {
-            var orders = await orderQueries.GetAsync(request.AccountId, ct);
+            var orders = await orderQueries.GetAsync(accountId, ct);
 
             var existingOrder = orders.Any(order =>
                 order.Status == OrderStatus.Pending &&

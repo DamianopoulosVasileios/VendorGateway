@@ -13,5 +13,11 @@ namespace VendorGateway.Infrastructure.Repositories.Authorization
             var user = await context.Users.FirstOrDefaultAsync(x => x.Username == username);
             return user;
         }
+
+        public async Task<User?> GetUserByIdAsync(int id)
+        {
+            var user = await context.Users.FirstOrDefaultAsync(x => x.Id == id);
+            return user;
+        }
     }
 }

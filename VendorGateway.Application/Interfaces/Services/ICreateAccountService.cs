@@ -4,6 +4,6 @@ namespace VendorGateway.Application.Interfaces.Services
 {
     public interface ICreateAccountService
     {
-        Task CreateAsync(CreateAccountRequest request, CancellationToken ct);
+        Task CreateAsync(CreateAccountRequest request, int id, CancellationToken ct);
     }
 }

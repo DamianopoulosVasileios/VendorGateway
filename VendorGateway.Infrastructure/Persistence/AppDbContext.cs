@@ -30,6 +30,10 @@ namespace VendorGateway.Infrastructure.Persistence
                 .HasIndex(o => o.IdempotencyKey)
                 .IsUnique();
 
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.Username)
+                .IsUnique();
+
             modelBuilder.Entity<Application.Entities.Account>()
                 .HasKey(x => x.Id);
 

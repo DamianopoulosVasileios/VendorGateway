@@ -55,7 +55,7 @@ namespace VendorGateway.Application.Jobs
                         {
                             var payload = JsonSerializer.Deserialize<CreateAccountJobPayload>(job.Payload!)!;
                             await services.GetRequiredService<ICreateAccountService>()
-                                .CreateAsync(payload.Request, ct);
+                                .CreateAsync(payload.Request, payload.Id, ct);
                             break;
                         }
                     case JobType.UpdateAccount:
@@ -76,7 +76,7 @@ namespace VendorGateway.Application.Jobs
                         {
                             var payload = JsonSerializer.Deserialize<CreateOrderJobPayload>(job.Payload!)!;
                             await services.GetRequiredService<ICreateOrderService>()
-                                .CreateAsync(payload.IdempotencyKey, payload.Request, ct);
+                                .CreateAsync(payload.AccountId, payload.IdempotencyKey, payload.Request, ct);
                             break;
                         }
                     case JobType.UpdateOrder:

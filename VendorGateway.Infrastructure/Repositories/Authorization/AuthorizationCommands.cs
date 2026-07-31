@@ -1,22 +1,20 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using VendorGateway.Application.Dtos;
+﻿using VendorGateway.Application.Dtos;
 using VendorGateway.Application.Dtos.Authentication;
 using VendorGateway.Application.Interfaces.CommandsQueries;
+using VendorGateway.Infrastructure.Interfaces;
 using VendorGateway.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace VendorGateway.Infrastructure.Repositories.Authorization
 {
-    public class AuthorizationCommands(AppDbContext context) : IAuthorizationCommands
+    public class AuthorizationCommands(AppDbContext context, IDbExceptionClassifier dbExceptionClassifier) : IAuthorizationCommands
     {
-        public async Task<bool> RegisterUserAsync(RegisterUserRequest request)
+        public async Task<int?> RegisterUserAsync(RegisterUserRequest request)
         {
             var existingUser = await context.Users.FirstOrDefaultAsync(x => x.Username == request.Username);
 
             if (existingUser != null)
-                return false;
+                return null;
 
             var user = new User
             {
@@ -26,9 +24,16 @@ namespace VendorGateway.Infrastructure.Repositories.Authorization
 
             context.Users.Add(user);
 
-            await context.SaveChangesAsync();
+            try
+            {
+                await context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (dbExceptionClassifier.IsUniqueConstraintViolation(ex))
+            {
+                return null;
+            }
 
-            return true;
+            return user.Id;
         }
     }
 }

@@ -5,6 +5,6 @@ namespace VendorGateway.Application.Interfaces.CommandsQueries
 {
     public interface IAuthorizationCommands
     {
-        Task<bool> RegisterUserAsync(RegisterUserRequest request);
+        Task<int?> RegisterUserAsync(RegisterUserRequest request);
     }
 }

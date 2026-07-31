@@ -6,11 +6,11 @@ using static VendorGateway.Application.Dtos.OrderRequest;
 
 namespace VendorGateway.Application.Services.Order
 {
-    public class UpdateOrderService(IAccountQueries accountQueries, IProductQueries productQueries, IOrderQueries orderQueries, IOrderCommands orderCommands) : IUpdateOrderService
+    public class UpdateOrderService(IAccountExistenceGuard accountExistenceGuard, IProductQueries productQueries, IOrderQueries orderQueries, IOrderCommands orderCommands) : IUpdateOrderService
     {
         public async Task UpdateAsync(int accountId, int id, UpdateOrder request, CancellationToken ct)
         {
-            await CheckAccountExists(accountId, ct);
+            await accountExistenceGuard.EnsureExistsAsync(accountId, ct);
 
             var productsById = await CheckIfProductsExist(request, ct);
             var order = await GetUniqueOrder(accountId, id, ct);
@@ -48,13 +48,6 @@ namespace VendorGateway.Application.Services.Order
             await orderCommands.UpdateAsync(accountId, order, ct);
         }
 
-
-        private async Task CheckAccountExists(int accountId, CancellationToken ct)
-        {
-            var account = await accountQueries.GetByIdsAsync([accountId], ct);
-            if (account == null || account.Count == 0)
-                throw new KeyNotFoundException($"Account with id {accountId} not found.");
-        }
 
         private async Task<Dictionary<int, Entities.Product>> CheckIfProductsExist(UpdateOrder request, CancellationToken ct)
         {

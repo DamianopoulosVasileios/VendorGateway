@@ -39,7 +39,7 @@ namespace VendorGateway.Infrastructure.Dependencies
 
         public static IServiceCollection AddExceptionClassifierInfrastructure(this IServiceCollection services)
         {
-            services.AddSingleton<IDbExceptionClassifier, SqlServerExceptionClassifier>();
+            services.AddSingleton<IDbExceptionClassifier, SqliteExceptionClassifier>();
             return services;
         }
 

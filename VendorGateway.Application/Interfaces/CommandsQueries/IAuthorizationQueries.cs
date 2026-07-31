@@ -6,5 +6,6 @@ namespace VendorGateway.Application.Interfaces.CommandsQueries
     public interface IAuthorizationQueries
     {
         Task<User?> GetUserByUsernameAsync(string username);
+        Task<User?> GetUserByIdAsync(int id);
     }
 }

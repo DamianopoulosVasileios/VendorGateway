@@ -1,11 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.Text.Json;
 using VendorGateway.Application.Dtos;
 using VendorGateway.Application.Dtos.Authentication;
 using VendorGateway.Application.Interfaces;
 using VendorGateway.Application.Interfaces.CommandsQueries;
 using VendorGateway.Application.Interfaces.Services;
+using VendorGateway.Application.Jobs.Commands;
+using VendorGateway.Application.Jobs.Entities;
+using static VendorGateway.Application.Jobs.DTOs.AsynchronousAPI;
 
 namespace VendorGateway.Application.Services.Authorization
 {
@@ -13,9 +14,10 @@ namespace VendorGateway.Application.Services.Authorization
         IAuthorizationQueries authorizationQueries,
         IAuthorizationCommands authorizationCommands,
         IAuthenticationTypeService authenticationTypeService,
-        IPasswordHasherService passwordHasherService) : IAuthService
+        IPasswordHasherService passwordHasherService,
+        IJobCommands jobCommands) : IAuthService
     {
-        public async Task<string?> LoginAsync(LoginUserRequest request)
+        public async Task<string?> LoginAsync(LoginAccountRequest request)
         {
             var user = await authorizationQueries.GetUserByUsernameAsync(request.Username);
             if (user is null)
@@ -31,16 +33,22 @@ namespace VendorGateway.Application.Services.Authorization
             return authenticationTypeService.GenerateToken(user.Id.ToString());
         }
 
-        public async Task<bool> RegisterAsync(RegisterUserRequest request)
+        public async Task<bool> RegisterAsync(RegisterUserRequest request, CancellationToken ct)
         {
-            var userRequest = request with 
+            var userRequest = request with
             {
-                Username = request.Username,
                 Password = passwordHasherService.Hash(request.Password)
             };
 
-            var success = await authorizationCommands.RegisterUserAsync(userRequest);
-            return success;
+            var userId = await authorizationCommands.RegisterUserAsync(userRequest);
+            if (userId == null)
+                return false;
+
+            var payload = new CreateAccountJobPayload(userId.Value, new CreateAccountRequest(request.Email));
+            var job = new Job { Type = JobType.CreateAccount, Payload = JsonSerializer.Serialize(payload) };
+            await jobCommands.CreateAsync(job, ct);
+
+            return true;
         }
     }
 }

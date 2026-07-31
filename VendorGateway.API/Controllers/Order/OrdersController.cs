@@ -18,11 +18,12 @@ namespace VendorGateway.API.Controllers.Order
     [Route("api/[controller]")]
     public class OrdersController(IJobCommands jobCommands) : ControllerBase
     {
+        private int AccountId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         [HttpGet("{orderId:int}")]
         public async Task<IActionResult> GetOrder([FromServices] IGetOrderService service, int orderId, CancellationToken ct)
         {
-            var order = await service.GetAsync(userId, orderId, ct);
+            var order = await service.GetAsync(AccountId, orderId, ct);
             var mappedResult = order.ToApiResponse();
             return Ok(mappedResult);
         }
@@ -35,7 +36,7 @@ namespace VendorGateway.API.Controllers.Order
             CancellationToken ct)
         {
             var mappedOrder = request.ToDto();
-            var payload = new CreateOrderJobPayload(idempotencyKey, mappedOrder);
+            var payload = new CreateOrderJobPayload(AccountId, idempotencyKey, mappedOrder);
             var job = new Job { Type = JobType.CreateOrder, Payload = JsonSerializer.Serialize(payload) };
 
             await jobCommands.CreateAsync(job, ct);
@@ -46,61 +47,54 @@ namespace VendorGateway.API.Controllers.Order
         public async Task<IActionResult> UpdateOrder([FromServices] IUpdateOrderService service, int orderId, ApiUpdateOrderRequest request, CancellationToken ct)
         {
             var mappedOrder = request.ToDto();
-            await service.UpdateAsync(accountId, orderId, mappedOrder, ct);
+            await service.UpdateAsync(AccountId, orderId, mappedOrder, ct);
             return Ok();
         }
 
         [HttpDelete("{orderId:int}")]
         public async Task<IActionResult> DeleteByIdOrder([FromServices] IDeleteOrderService service, int orderId, CancellationToken ct)
         {
-            await service.DeleteAsync(accountId, orderId, ct);
+            await service.DeleteAsync(AccountId, orderId, ct);
             return Ok();
         }
 
         [HttpPost("execute/{orderId:int}")]
         public async Task<IActionResult> ExecuteOrder([FromServices] IExecuteOrderService service, int orderId, CancellationToken ct)
         {
-            await service.ExecuteAsync(accountId, orderId, ct);
+            await service.ExecuteAsync(AccountId, orderId, ct);
             return Ok();
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetOrders([FromServices] IOrderQueries orderQueries, [FromServices] IAccountQueries accountQueries, CancellationToken ct)
+        public async Task<IActionResult> GetOrders([FromServices] IOrderQueries orderQueries, [FromServices] IAccountExistenceGuard accountExistenceGuard, CancellationToken ct)
         {
-            await CheckAccountExists(accountQueries, ct);
+            await accountExistenceGuard.EnsureExistsAsync(AccountId, ct);
 
-            var orders = await orderQueries.GetAsync(accountId, ct);
+            var orders = await orderQueries.GetAsync(AccountId, ct);
             var mappedResponse = orders.Select(x => x.ToApiResponse()).ToList();
             return Ok(mappedResponse);
         }
 
         [HttpDelete]
-        public async Task<IActionResult> DeleteOrders([FromServices] IOrderCommands orderCommands, [FromServices] IAccountQueries accountQueries, CancellationToken ct)
+        public async Task<IActionResult> DeleteOrders([FromServices] IOrderCommands orderCommands, [FromServices] IAccountExistenceGuard accountExistenceGuard, CancellationToken ct)
         {
-            await CheckAccountExists(accountQueries, ct);
+            await accountExistenceGuard.EnsureExistsAsync(AccountId, ct);
 
-            await orderCommands.DeleteAsync(accountId, ct);
+            await orderCommands.DeleteAsync(AccountId, ct);
             return Ok();
         }
 
         [HttpGet("orderItems")]
-        public async Task<IActionResult> GetOrderItems([FromServices] IOrderQueries orderQueries, [FromServices] IAccountQueries accountQueries, CancellationToken ct)
+        public async Task<IActionResult> GetOrderItems([FromServices] IOrderQueries orderQueries, [FromServices] IAccountExistenceGuard accountExistenceGuard, CancellationToken ct)
         {
-            await CheckAccountExists(accountQueries, ct);
+            await accountExistenceGuard.EnsureExistsAsync(AccountId, ct);
 
-            var orders = await orderQueries.GetAsync(accountId, ct);
+            var orders = await orderQueries.GetAsync(AccountId, ct);
             var orderIds = orders.Select(x => x.Id);
 
             var orderItems = await orderQueries.GetOrderItemsAsync(orderIds, ct);
             var mappedResponse = orderItems.Select(x => x.ToApiResponse()).ToList();
             return Ok(mappedResponse);
-        }
-
-        private static async Task CheckAccountExists(IAccountQueries accountQueries, CancellationToken ct)
-        {
-            var account = await accountQueries.GetByIdsAsync([accountId], ct);
-            if (account == null || account.Count == 0)
-                throw new KeyNotFoundException($"Account with id {accountId} not found.");
         }
     }
 }

@@ -13,7 +13,7 @@ namespace VendorGateway.API.Controllers.Authorization
     public class AuthController(IAuthService authService) : ControllerBase
     {
         [HttpPost("login")]
-        public async Task<IActionResult> LoginAsync(LoginUserRequest request)
+        public async Task<IActionResult> LoginAsync(LoginAccountRequest request)
         {
             var token = await authService.LoginAsync(request);
 
@@ -27,13 +27,13 @@ namespace VendorGateway.API.Controllers.Authorization
         }
 
         [HttpPost("register")]
-        public async Task<IActionResult> RegisterAsync(RegisterUserRequest request)
+        public async Task<IActionResult> RegisterAsync(RegisterUserRequest request, CancellationToken ct)
         {
-            var success = await authService.RegisterAsync(request);
+            var success = await authService.RegisterAsync(request, ct);
             if (success)
                 return StatusCode(201);
 
-            return StatusCode(500);
+            return Conflict($"Username '{request.Username}' is already taken.");
         }
     }
 }

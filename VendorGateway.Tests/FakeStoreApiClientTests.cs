@@ -147,11 +147,12 @@ namespace VendorGateway.Tests
         [Fact]
         public async Task CreateAsync_SendsPostRequest_ToCreateUrl_WithMappedBody()
         {
+            var id = _fixture.Create<int>();
             var apiRequest = _fixture.Create<CreateAccountRequest>();
             var fakeStoreResponse = _fixture.Create<FakeStoreCreateAccountResponse>();
             var httpResponse = new HttpResponseMessage(HttpStatusCode.OK);
 
-            var expectedBody = AccountMappers.ToFakeStore(apiRequest);
+            var expectedBody = AccountMappers.ToFakeStore(apiRequest, id);
 
             HttpRequestMessage capturedRequest = null;
             SetupHandler(httpResponse, req => capturedRequest = req);
@@ -160,7 +161,7 @@ namespace VendorGateway.Tests
                 .Setup(r => r.ReadAsync<FakeStoreCreateAccountResponse>(httpResponse, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(fakeStoreResponse);
 
-            await _sutAccounts.CreateAsync(apiRequest, CancellationToken.None);
+            await _sutAccounts.CreateAsync(apiRequest, id, CancellationToken.None);
 
             capturedRequest.Should().NotBeNull();
             capturedRequest!.Method.Should().Be(HttpMethod.Post);
@@ -173,6 +174,7 @@ namespace VendorGateway.Tests
         [Fact]
         public async Task CreateAsync_ReturnsMappedResponse_FromReader()
         {
+            var id = _fixture.Create<int>();
             var apiRequest = _fixture.Create<CreateAccountRequest>();
             var fakeStoreResponse = _fixture.Create<FakeStoreCreateAccountResponse>();
             var httpResponse = new HttpResponseMessage(HttpStatusCode.OK);
@@ -185,7 +187,7 @@ namespace VendorGateway.Tests
                 .Setup(r => r.ReadAsync<FakeStoreCreateAccountResponse>(httpResponse, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(fakeStoreResponse);
 
-            var result = await _sutAccounts.CreateAsync(apiRequest, CancellationToken.None);
+            var result = await _sutAccounts.CreateAsync(apiRequest, id, CancellationToken.None);
 
             result.Should().BeEquivalentTo(expected);
         }
@@ -202,7 +204,7 @@ namespace VendorGateway.Tests
             var fakeStoreResponse = _fixture.Create<FakeStoreUpdateAccountResponse>();
             var httpResponse = new HttpResponseMessage(HttpStatusCode.OK);
 
-            var expectedBody = AccountMappers.ToFakeStore(apiRequest);
+            var expectedBody = AccountMappers.ToFakeStore(apiRequest, id);
 
             HttpRequestMessage capturedRequest = null;
             SetupHandler(httpResponse, req => capturedRequest = req);

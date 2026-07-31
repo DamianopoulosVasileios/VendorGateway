@@ -19,6 +19,7 @@ namespace VendorGateway.Application.DependencyInjection
             services.AddScoped<IDeleteAccountService, DeleteAccountService>();
             services.AddScoped<IGetAccountService, GetAccountService>();
             services.AddScoped<IUpdateAccountService, UpdateAccountService>();
+            services.AddScoped<IAccountExistenceGuard, AccountExistenceGuard>();
 
             services.AddScoped<ICreateOrderService, CreateOrderService>();
             services.AddScoped<IDeleteOrderService, DeleteOrderService>();

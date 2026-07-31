@@ -33,24 +33,20 @@ namespace VendorGateway.Infrastructure.Repositories.Account
             }
         }
 
-        public async Task UpdateAsync(Application.Entities.Account account, CancellationToken ct)
+        public async Task UpdateAsync(int id, string email, CancellationToken ct)
         {
-            ArgumentNullException.ThrowIfNull(account);
-
             var entity = await _db.Accounts
-                .FirstOrDefaultAsync(x => x.Id == account.Id, ct)
-                ?? throw new KeyNotFoundException($"Account with id {account.Id} was not found.");
+                .FirstOrDefaultAsync(x => x.Id == id, ct)
+                ?? throw new KeyNotFoundException($"Account with id {id} was not found.");
 
             try
             {
-                //entity.Id = account.Id;
-                //There is no need to update the Id as it is the primary key and should not change.
-                //There is nothing to update in this case, but if there were other properties to update, you would do it here.
+                entity.Email = email;
                 await _db.SaveChangesAsync(ct);
             }
             catch (DbUpdateException ex)
             {
-                throw new InvalidOperationException($"Failed to update account {account.Id}.", ex);
+                throw new InvalidOperationException($"Failed to update account {id}.", ex);
             }
         }
 

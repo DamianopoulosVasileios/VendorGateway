@@ -4,24 +4,16 @@ using VendorGateway.Application.Interfaces.Services;
 
 namespace VendorGateway.Application.Services.Order
 {
-    public class ExecuteOrderService(IAccountQueries accountQueries, IOrderQueries orderQueries, IOrderCommands orderCommands) : IExecuteOrderService
+    public class ExecuteOrderService(IAccountExistenceGuard accountExistenceGuard, IOrderQueries orderQueries, IOrderCommands orderCommands) : IExecuteOrderService
     {
         public async Task ExecuteAsync(int accountId, int id, CancellationToken ct)
         {
-            await CheckAccountExists(accountId, ct);
+            await accountExistenceGuard.EnsureExistsAsync(accountId, ct);
 
             var order = await OrderExistsAndIsUnique(accountId, id, ct);
 
             await orderCommands.ExecuteAsync(order.AccountId, order.Id, ct);
         }
-
-        private async Task CheckAccountExists(int accountId, CancellationToken ct)
-        {
-            var account = await accountQueries.GetByIdsAsync([accountId], ct);
-            if (account == null || account.Count == 0)
-                throw new KeyNotFoundException($"Account with id {accountId} not found.");
-        }
-
 
         private async Task<OrderDetails.Order> OrderExistsAndIsUnique(int accountId, int id, CancellationToken ct)
         {
