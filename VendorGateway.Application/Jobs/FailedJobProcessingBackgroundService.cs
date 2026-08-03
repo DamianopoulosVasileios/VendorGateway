@@ -1,10 +1,8 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using System.Text.Json;
-using VendorGateway.Application.Interfaces.Services;
+using VendorGateway.Application.Diagnostics;
 using VendorGateway.Application.Jobs.Commands;
 using VendorGateway.Application.Jobs.Entities;
-using static VendorGateway.Application.Jobs.DTOs.AsynchronousAPI;
 
 namespace VendorGateway.Application.Jobs
 {
@@ -46,79 +44,26 @@ namespace VendorGateway.Application.Jobs
             using var scope = scopeFactory.CreateScope();
             var services = scope.ServiceProvider;
             var jobCommands = services.GetRequiredService<IJobCommands>();
+            var metrics = services.GetRequiredService<VendorGatewayMetrics>();
 
             try
             {
-                switch (job.Type)
+                var result = await JobDispatcher.DispatchAsync(services, job, ct);
+                if (result.IsSuccess)
                 {
-                    case JobType.CreateAccount:
-                        {
-                            var payload = JsonSerializer.Deserialize<CreateAccountJobPayload>(job.Payload!)!;
-                            await services.GetRequiredService<ICreateAccountService>()
-                                .CreateAsync(payload.Request, payload.Id, ct);
-                            break;
-                        }
-                    case JobType.UpdateAccount:
-                        {
-                            var payload = JsonSerializer.Deserialize<UpdateAccountJobPayload>(job.Payload!)!;
-                            await services.GetRequiredService<IUpdateAccountService>()
-                                .UpdateAsync(payload.Request, payload.Id, ct);
-                            break;
-                        }
-                    case JobType.DeleteAccount:
-                        {
-                            var payload = JsonSerializer.Deserialize<DeleteAccountJobPayload>(job.Payload!)!;
-                            await services.GetRequiredService<IDeleteAccountService>()
-                                .DeleteAsync(payload.Id, ct);
-                            break;
-                        }
-                    case JobType.CreateOrder:
-                        {
-                            var payload = JsonSerializer.Deserialize<CreateOrderJobPayload>(job.Payload!)!;
-                            await services.GetRequiredService<ICreateOrderService>()
-                                .CreateAsync(payload.AccountId, payload.IdempotencyKey, payload.Request, ct);
-                            break;
-                        }
-                    case JobType.UpdateOrder:
-                        {
-                            var payload = JsonSerializer.Deserialize<UpdateOrderJobPayload>(job.Payload!)!;
-                            await services.GetRequiredService<IUpdateOrderService>()
-                                .UpdateAsync(payload.AccountId, payload.Id, payload.Request, ct);
-                            break;
-                        }
-                    case JobType.DeleteOrder:
-                        {
-                            var payload = JsonSerializer.Deserialize<DeleteOrderJobPayload>(job.Payload!)!;
-                            await services.GetRequiredService<IDeleteOrderService>()
-                                .DeleteAsync(payload.AccountId, payload.Id, ct);
-                            break;
-                        }
-                    case JobType.ExecuteOrder:
-                        {
-                            var payload = JsonSerializer.Deserialize<ExecuteOrderJobPayload>(job.Payload!)!;
-                            await services.GetRequiredService<IExecuteOrderService>()
-                                .ExecuteAsync(payload.AccountId, payload.Id, ct);
-                            break;
-                        }
-                    case JobType.CreateProduct:
-                        {
-                            await services.GetRequiredService<ICreateProductService>().UpdateAsync(ct);
-                            break;
-                        }
-                    case JobType.DeleteProduct:
-                        {
-                            await services.GetRequiredService<IDeleteProductService>().DeleteAsync(ct);
-                            break;
-                        }
-                    default:
-                        throw new InvalidOperationException($"Unhandled job type: {job.Type}");
+                    await jobCommands.MarkCompletedAsync(job.Id, ct);
+                    metrics.JobCompleted(job.Type.ToString());
                 }
-
-                await jobCommands.MarkCompletedAsync(job.Id, ct);
+                else
+                {
+                    await jobCommands.MarkFailedAsync(job.Id, result.Error!.Message, ct);
+                    metrics.JobFailed(job.Type.ToString());
+                }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 await jobCommands.MarkFailedAsync(job.Id, ex.Message, ct);
+                metrics.JobFailed(job.Type.ToString());
             }
         }
     }

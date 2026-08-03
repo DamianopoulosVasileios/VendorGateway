@@ -5,6 +5,9 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Polly;
 using Serilog;
 using System.Text;
@@ -12,6 +15,7 @@ using System.Threading.RateLimiting;
 using VendorGateway.API;
 using VendorGateway.API.Filters;
 using VendorGateway.Application.DependencyInjection;
+using VendorGateway.Application.Diagnostics;
 using VendorGateway.Application.Dtos.Authentication;
 using VendorGateway.Application.Interfaces.ApiClient;
 using VendorGateway.Application.Interfaces.CommandsQueries;
@@ -67,6 +71,10 @@ RegisterAndConfigureAuthorization(builder);
 
 AddLogger(builder);
 
+SetupOpenTelemetry(builder);
+
+SetupHealthChecks(builder);
+
 RegisterServices(builder);
 
 SetupHttpClient(builder);
@@ -92,6 +100,8 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.UseRateLimiter();
+
+app.MapHealthChecks("/health").AllowAnonymous();
 
 app.MapControllers().RequireRateLimiting("fixed");
 
@@ -161,6 +171,49 @@ static void SetupHttpClient(WebApplicationBuilder builder)
                 options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(15);
             });
     }
+}
+
+static void SetupOpenTelemetry(WebApplicationBuilder builder)
+{
+    builder.Services.AddMetrics();
+
+    var isDevelopment = builder.Environment.IsDevelopment();
+
+    builder.Services.AddOpenTelemetry()
+        .ConfigureResource(r => r.AddService("VendorGateway.API"))
+        .WithMetrics(metrics =>
+        {
+            metrics
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation()
+                .AddMeter("Microsoft.EntityFrameworkCore")
+                .AddMeter(VendorGatewayMetrics.MeterName);
+
+            if (isDevelopment)
+                metrics.AddConsoleExporter();
+            else
+                metrics.AddOtlpExporter(o => o.Endpoint = new Uri(GetOtlpEndpoint(builder.Configuration)));
+        })
+        .WithTracing(tracing =>
+        {
+            tracing
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation();
+
+            if (isDevelopment)
+                tracing.AddConsoleExporter();
+            else
+                tracing.AddOtlpExporter(o => o.Endpoint = new Uri(GetOtlpEndpoint(builder.Configuration)));
+        });
+}
+
+static string GetOtlpEndpoint(IConfiguration config) =>
+    config["OpenTelemetry:OtlpEndpoint"]
+        ?? throw new InvalidDataException("OpenTelemetry:OtlpEndpoint must be configured for non-Development environments.");
+
+static void SetupHealthChecks(WebApplicationBuilder builder)
+{
+    builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>(name: "sqlite-db");
 }
 
 static void SetupRateLimiter(WebApplicationBuilder builder)

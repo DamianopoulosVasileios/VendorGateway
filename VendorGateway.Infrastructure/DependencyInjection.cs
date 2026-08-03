@@ -1,5 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Polly;
+using Polly.Retry;
 using VendorGateway.Application.Interfaces.CommandsQueries;
 using VendorGateway.Application.Jobs.Commands;
 using VendorGateway.Infrastructure.ExceptionClassifiers;
@@ -15,6 +17,8 @@ namespace VendorGateway.Infrastructure.Dependencies
 {
     public static class DependencyInjection
     {
+        public const string SqliteWriteResiliencePipeline = "sqlite-write";
+
         public static IServiceCollection AddServicesFromInfrastructure(this IServiceCollection services, string mode)
         {
             services.AddScoped<IAccountQueries, AccountQueries>();
@@ -28,6 +32,19 @@ namespace VendorGateway.Infrastructure.Dependencies
             services.AddScoped<IJobCommands, JobCommands>();
 
             services.AddExceptionClassifierInfrastructure();
+
+            services.AddResiliencePipeline(SqliteWriteResiliencePipeline, (builder, context) =>
+            {
+                var classifier = context.ServiceProvider.GetRequiredService<IDbExceptionClassifier>();
+                builder.AddRetry(new RetryStrategyOptions
+                {
+                    ShouldHandle = new PredicateBuilder().Handle<DbUpdateException>(classifier.IsTransientBusyError),
+                    MaxRetryAttempts = 3,
+                    Delay = TimeSpan.FromMilliseconds(50),
+                    BackoffType = DelayBackoffType.Exponential,
+                    UseJitter = true
+                });
+            });
 
             var dbPath = GetPath(mode);
 

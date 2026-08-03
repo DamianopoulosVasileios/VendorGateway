@@ -1,8 +1,7 @@
-﻿using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using VendorGateway.API.Extensions;
 using VendorGateway.Application.Dtos.Authentication;
-using VendorGateway.Application.Interfaces;
 using VendorGateway.Application.Interfaces.Services;
 
 namespace VendorGateway.API.Controllers.Authorization
@@ -15,25 +14,15 @@ namespace VendorGateway.API.Controllers.Authorization
         [HttpPost("login")]
         public async Task<IActionResult> LoginAsync(LoginAccountRequest request)
         {
-            var token = await authService.LoginAsync(request);
-
-            if (token == null)
-                return Unauthorized();
-
-            return Ok(new
-            {
-                token
-            });
+            var result = await authService.LoginAsync(request);
+            return result.ToActionResult(token => new { token });
         }
 
         [HttpPost("register")]
         public async Task<IActionResult> RegisterAsync(RegisterUserRequest request, CancellationToken ct)
         {
-            var success = await authService.RegisterAsync(request, ct);
-            if (success)
-                return StatusCode(201);
-
-            return Conflict($"Username '{request.Username}' is already taken.");
+            var result = await authService.RegisterAsync(request, ct);
+            return result.IsSuccess ? StatusCode(201) : result.ToActionResult();
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using VendorGateway.Application.Dtos;
+using VendorGateway.Application.Common;
+using VendorGateway.Application.Dtos;
 using VendorGateway.Application.Enums;
 using VendorGateway.Application.Interfaces.CommandsQueries;
 using VendorGateway.Application.Interfaces.Services;
@@ -8,16 +9,27 @@ namespace VendorGateway.Application.Services.Order
 {
     public class UpdateOrderService(IAccountExistenceGuard accountExistenceGuard, IProductQueries productQueries, IOrderQueries orderQueries, IOrderCommands orderCommands) : IUpdateOrderService
     {
-        public async Task UpdateAsync(int accountId, int id, UpdateOrder request, CancellationToken ct)
+        public async Task<Result> UpdateAsync(int accountId, int id, UpdateOrder request, CancellationToken ct)
         {
-            await accountExistenceGuard.EnsureExistsAsync(accountId, ct);
+            var guard = await accountExistenceGuard.EnsureExistsAsync(accountId, ct);
+            if (guard.IsFailure)
+                return guard;
 
-            var productsById = await CheckIfProductsExist(request, ct);
-            var order = await GetUniqueOrder(accountId, id, ct);
+            var productsResult = await CheckIfProductsExist(request, ct);
+            if (productsResult.IsFailure)
+                return productsResult;
+
+            var productsById = productsResult.Value;
+
+            var orderResult = await GetUniqueOrder(accountId, id, ct);
+            if (orderResult.IsFailure)
+                return orderResult;
+
+            var order = orderResult.Value;
 
             if (order.Status == OrderStatus.Submitted)
             {
-                throw new InvalidOperationException("Cannot update an executed order.");
+                return Result.Failure(Error.Conflict("Cannot update an executed order."));
             }
 
             var productsWithCategoryIdApplicableToPotentialDiscount = productsById.Values
@@ -45,11 +57,10 @@ namespace VendorGateway.Application.Services.Order
                 }
             }
 
-            await orderCommands.UpdateAsync(accountId, order, ct);
+            return await orderCommands.UpdateAsync(accountId, order, ct);
         }
 
-
-        private async Task<Dictionary<int, Entities.Product>> CheckIfProductsExist(UpdateOrder request, CancellationToken ct)
+        private async Task<Result<Dictionary<int, Entities.Product>>> CheckIfProductsExist(UpdateOrder request, CancellationToken ct)
         {
             var products = await productQueries.GetByIdsAsync(request.Items.Select(x => x.ProductId), ct);
             var productsById = products.ToDictionary(p => p.Id);
@@ -60,20 +71,22 @@ namespace VendorGateway.Application.Services.Order
                 .ToList();
 
             if (missingProductIds.Count > 0)
-                throw new KeyNotFoundException($"The following product ids were not found: {string.Join(", ", missingProductIds)}.");
-            return productsById;
+                return Result.Failure<Dictionary<int, Entities.Product>>(
+                    Error.NotFound($"The following product ids were not found: {string.Join(", ", missingProductIds)}."));
+
+            return Result.Success(productsById);
         }
 
-        private async Task<OrderDetails.Order> GetUniqueOrder(int accountId, int id, CancellationToken ct)
+        private async Task<Result<OrderDetails.Order>> GetUniqueOrder(int accountId, int id, CancellationToken ct)
         {
             var results = await orderQueries.GetByIdsAsync(accountId, [id], ct);
             if (results == null || results.Count == 0)
             {
-                throw new KeyNotFoundException($"Order with id {id} not found for account {accountId}");
+                return Result.Failure<OrderDetails.Order>(Error.NotFound($"Order with id {id} not found for account {accountId}"));
             }
 
             var order = results.SingleOrDefault();
-            return order!;
+            return Result.Success(order!);
         }
     }
 }

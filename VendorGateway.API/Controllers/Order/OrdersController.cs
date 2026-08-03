@@ -1,8 +1,9 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using System.Text.Json;
 using VendorGateway.API.Contracts.Order.Requests;
+using VendorGateway.API.Extensions;
 using VendorGateway.API.Filters;
 using VendorGateway.API.Mappers;
 using VendorGateway.Application.Interfaces.CommandsQueries;
@@ -23,9 +24,8 @@ namespace VendorGateway.API.Controllers.Order
         [HttpGet("{orderId:int}")]
         public async Task<IActionResult> GetOrder([FromServices] IGetOrderService service, int orderId, CancellationToken ct)
         {
-            var order = await service.GetAsync(AccountId, orderId, ct);
-            var mappedResult = order.ToApiResponse();
-            return Ok(mappedResult);
+            var result = await service.GetAsync(AccountId, orderId, ct);
+            return result.ToActionResult(order => order.ToApiResponse());
         }
 
         [HttpPost]
@@ -47,28 +47,30 @@ namespace VendorGateway.API.Controllers.Order
         public async Task<IActionResult> UpdateOrder([FromServices] IUpdateOrderService service, int orderId, ApiUpdateOrderRequest request, CancellationToken ct)
         {
             var mappedOrder = request.ToDto();
-            await service.UpdateAsync(AccountId, orderId, mappedOrder, ct);
-            return Ok();
+            var result = await service.UpdateAsync(AccountId, orderId, mappedOrder, ct);
+            return result.ToActionResult();
         }
 
         [HttpDelete("{orderId:int}")]
         public async Task<IActionResult> DeleteByIdOrder([FromServices] IDeleteOrderService service, int orderId, CancellationToken ct)
         {
-            await service.DeleteAsync(AccountId, orderId, ct);
-            return Ok();
+            var result = await service.DeleteAsync(AccountId, orderId, ct);
+            return result.ToActionResult();
         }
 
         [HttpPost("execute/{orderId:int}")]
         public async Task<IActionResult> ExecuteOrder([FromServices] IExecuteOrderService service, int orderId, CancellationToken ct)
         {
-            await service.ExecuteAsync(AccountId, orderId, ct);
-            return Ok();
+            var result = await service.ExecuteAsync(AccountId, orderId, ct);
+            return result.ToActionResult();
         }
 
         [HttpGet]
         public async Task<IActionResult> GetOrders([FromServices] IOrderQueries orderQueries, [FromServices] IAccountExistenceGuard accountExistenceGuard, CancellationToken ct)
         {
-            await accountExistenceGuard.EnsureExistsAsync(AccountId, ct);
+            var guard = await accountExistenceGuard.EnsureExistsAsync(AccountId, ct);
+            if (guard.IsFailure)
+                return guard.ToActionResult();
 
             var orders = await orderQueries.GetAsync(AccountId, ct);
             var mappedResponse = orders.Select(x => x.ToApiResponse()).ToList();
@@ -78,16 +80,20 @@ namespace VendorGateway.API.Controllers.Order
         [HttpDelete]
         public async Task<IActionResult> DeleteOrders([FromServices] IOrderCommands orderCommands, [FromServices] IAccountExistenceGuard accountExistenceGuard, CancellationToken ct)
         {
-            await accountExistenceGuard.EnsureExistsAsync(AccountId, ct);
+            var guard = await accountExistenceGuard.EnsureExistsAsync(AccountId, ct);
+            if (guard.IsFailure)
+                return guard.ToActionResult();
 
-            await orderCommands.DeleteAsync(AccountId, ct);
-            return Ok();
+            var result = await orderCommands.DeleteAsync(AccountId, ct);
+            return result.ToActionResult();
         }
 
         [HttpGet("orderItems")]
         public async Task<IActionResult> GetOrderItems([FromServices] IOrderQueries orderQueries, [FromServices] IAccountExistenceGuard accountExistenceGuard, CancellationToken ct)
         {
-            await accountExistenceGuard.EnsureExistsAsync(AccountId, ct);
+            var guard = await accountExistenceGuard.EnsureExistsAsync(AccountId, ct);
+            if (guard.IsFailure)
+                return guard.ToActionResult();
 
             var orders = await orderQueries.GetAsync(AccountId, ct);
             var orderIds = orders.Select(x => x.Id);

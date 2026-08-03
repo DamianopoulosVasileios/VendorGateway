@@ -1,7 +1,9 @@
+using VendorGateway.Application.Common;
+
 namespace VendorGateway.Application.Interfaces.Services
 {
     public interface IAccountExistenceGuard
     {
-        Task EnsureExistsAsync(int accountId, CancellationToken ct);
+        Task<Result> EnsureExistsAsync(int accountId, CancellationToken ct);
     }
 }

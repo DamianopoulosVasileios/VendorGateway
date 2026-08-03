@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+using System.Text.Json;
+using VendorGateway.Application.Common;
 using VendorGateway.Application.Dtos;
 using VendorGateway.Application.Dtos.Authentication;
 using VendorGateway.Application.Interfaces;
@@ -17,23 +18,23 @@ namespace VendorGateway.Application.Services.Authorization
         IPasswordHasherService passwordHasherService,
         IJobCommands jobCommands) : IAuthService
     {
-        public async Task<string?> LoginAsync(LoginAccountRequest request)
+        public async Task<Result<string>> LoginAsync(LoginAccountRequest request)
         {
             var user = await authorizationQueries.GetUserByUsernameAsync(request.Username);
             if (user is null)
-                return null;
+                return Result.Failure<string>(Error.Unauthorized("Invalid username or password."));
 
             var validPassword = passwordHasherService.Verify(
                 request.Password,
                 user.PasswordHash);
 
             if (!validPassword)
-                return null;
+                return Result.Failure<string>(Error.Unauthorized("Invalid username or password."));
 
-            return authenticationTypeService.GenerateToken(user.Id.ToString());
+            return Result.Success(authenticationTypeService.GenerateToken(user.Id.ToString()));
         }
 
-        public async Task<bool> RegisterAsync(RegisterUserRequest request, CancellationToken ct)
+        public async Task<Result> RegisterAsync(RegisterUserRequest request, CancellationToken ct)
         {
             var userRequest = request with
             {
@@ -42,13 +43,13 @@ namespace VendorGateway.Application.Services.Authorization
 
             var userId = await authorizationCommands.RegisterUserAsync(userRequest);
             if (userId == null)
-                return false;
+                return Result.Failure(Error.Conflict($"Username '{request.Username}' is already taken."));
 
             var payload = new CreateAccountJobPayload(userId.Value, new CreateAccountRequest(request.Email));
             var job = new Job { Type = JobType.CreateAccount, Payload = JsonSerializer.Serialize(payload) };
             await jobCommands.CreateAsync(job, ct);
 
-            return true;
+            return Result.Success();
         }
     }
 }

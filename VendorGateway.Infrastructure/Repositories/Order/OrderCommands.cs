@@ -1,6 +1,11 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Polly;
+using Polly.Registry;
+using VendorGateway.Application.Common;
+using VendorGateway.Application.Diagnostics;
 using VendorGateway.Application.Interfaces.CommandsQueries;
+using VendorGateway.Infrastructure.Dependencies;
 using VendorGateway.Infrastructure.Interfaces;
 using VendorGateway.Infrastructure.Persistence;
 
@@ -11,32 +16,45 @@ namespace VendorGateway.Infrastructure.Repositories.Order
         private readonly AppDbContext _db;
         private readonly IDbExceptionClassifier _dbExceptionClassifier;
         private readonly ILogger<OrderCommands> _logger;
+        private readonly VendorGatewayMetrics _metrics;
+        private readonly ResiliencePipeline _writePipeline;
 
-        public OrderCommands(AppDbContext db, IDbExceptionClassifier dbExceptionClassifier, ILogger<OrderCommands> logger)
+        public OrderCommands(
+            AppDbContext db,
+            IDbExceptionClassifier dbExceptionClassifier,
+            ILogger<OrderCommands> logger,
+            VendorGatewayMetrics metrics,
+            ResiliencePipelineProvider<string> pipelines)
         {
             _db = db;
             _dbExceptionClassifier = dbExceptionClassifier;
             _logger = logger;
+            _metrics = metrics;
+            _writePipeline = pipelines.GetPipeline(DependencyInjection.SqliteWriteResiliencePipeline);
         }
 
-        public async Task CreateAsync(int accountId, Guid idempotencyKey, List<Application.Dtos.OrderDetails.OrderItem> orderItem, CancellationToken ct)
+        public async Task<Result> CreateAsync(int accountId, Guid idempotencyKey, List<Application.Dtos.OrderDetails.OrderItem> orderItem, CancellationToken ct)
         {
             var existing = await _db.Orders
                 .Include(o => o.Items)
                 .FirstOrDefaultAsync(o => o.IdempotencyKey == idempotencyKey, ct);
 
             if (existing is not null)
-                return;
+                return Result.Success();
 
             var items = orderItem.Select(Application.Mappers.OrderMappers.ToDto).ToList();
             var orderToPersist = Application.Entities.Order.Create(accountId, idempotencyKey, items);
 
-            CheckOrderValidity(orderToPersist);
+            var validation = ValidateOrder(orderToPersist);
+            if (validation is not null)
+                return validation;
+
+            await _db.Orders.AddAsync(orderToPersist, ct);
 
             try
             {
-                await _db.Orders.AddAsync(orderToPersist, ct);
-                await _db.SaveChangesAsync(ct);
+                await _writePipeline.ExecuteAsync(async token => await _db.SaveChangesAsync(token), ct);
+                _metrics.OrderCreated();
             }
             catch (DbUpdateException ex) when (_dbExceptionClassifier.IsUniqueConstraintViolation(ex))
             {
@@ -48,120 +66,98 @@ namespace VendorGateway.Infrastructure.Repositories.Order
                     "Concurrent CreateAsync for idempotency key {IdempotencyKey}: order {WinningOrderId} already persisted for account {AccountId}.",
                     idempotencyKey, winningOrder.Id, accountId);
             }
-            catch (DbUpdateException ex)
-            {
-                throw new InvalidOperationException("Failed to persist order to database.", ex);
-            }
+
+            return Result.Success();
         }
 
-        public async Task UpdateAsync(int accountId, Application.Dtos.OrderDetails.Order order, CancellationToken ct)
+        public async Task<Result> UpdateAsync(int accountId, Application.Dtos.OrderDetails.Order order, CancellationToken ct)
         {
             var items = order.Items.Select(Application.Mappers.OrderMappers.ToDto).ToList();
             var newOrder = Application.Entities.Order.CreateWithOrderId(order.Id, accountId, items);
 
-            CheckOrderValidity(newOrder);
+            var validation = ValidateOrder(newOrder);
+            if (validation is not null)
+                return validation;
 
-            try
-            {
-                var entity = await _db.Orders
-                    .Include(x => x.Items)
-                    .FirstOrDefaultAsync(x => x.Id == newOrder.Id, ct);
+            var entity = await _db.Orders
+                .Include(x => x.Items)
+                .FirstOrDefaultAsync(x => x.Id == newOrder.Id, ct);
 
-                if (entity is null)
-                    throw new KeyNotFoundException($"OrderId {order.Id} was not found for accountId {accountId}.");
+            if (entity is null)
+                return Result.Failure(Error.NotFound($"OrderId {order.Id} was not found for accountId {accountId}."));
 
-                entity.UpdatePropertiesForOrderUpdate(newOrder);
+            entity.UpdatePropertiesForOrderUpdate(newOrder);
 
-                await _db.SaveChangesAsync(ct);
-            }
-            catch (DbUpdateException ex)
-            {
-                throw new InvalidOperationException($"Failed to update order {order.Id}.", ex);
-            }
+            await _writePipeline.ExecuteAsync(async token => await _db.SaveChangesAsync(token), ct);
+
+            return Result.Success();
         }
 
-        public async Task DeleteByIdAsync(int accountId, int id, CancellationToken ct)
+        public async Task<Result> DeleteByIdAsync(int accountId, int id, CancellationToken ct)
         {
-            try
-            {
-                var deleted = await _db.Orders
-                    .Where(x => x.AccountId == accountId && x.Id == id && x.Status != Application.Enums.OrderStatus.Submitted)
-                    .ExecuteDeleteAsync(ct);
+            var deleted = await _writePipeline.ExecuteAsync(async token => await _db.Orders
+                .Where(x => x.AccountId == accountId && x.Id == id && x.Status != Application.Enums.OrderStatus.Submitted)
+                .ExecuteDeleteAsync(token), ct);
 
-                if (deleted > 0)
-                    return;
+            if (deleted > 0)
+                return Result.Success();
 
-                var exists = await _db.Orders
-                    .AnyAsync(x => x.AccountId == accountId && x.Id == id, ct);
+            var exists = await _db.Orders
+                .AnyAsync(x => x.AccountId == accountId && x.Id == id, ct);
 
-                if (!exists)
-                    throw new KeyNotFoundException($"OrderId {id} was not found for accountId {accountId}.");
+            if (!exists)
+                return Result.Failure(Error.NotFound($"OrderId {id} was not found for accountId {accountId}."));
 
-                throw new InvalidOperationException(
-                    $"OrderId {id} is already submitted for accountId {accountId}. Cannot delete submitted orders.");
-            }
-            catch (DbUpdateException ex)
-            {
-                throw new InvalidOperationException($"Failed to delete order {id}.", ex);
-            }
+            return Result.Failure(Error.Conflict(
+                $"OrderId {id} is already submitted for accountId {accountId}. Cannot delete submitted orders."));
         }
 
-        public async Task DeleteAsync(int accountId, CancellationToken ct)
+        public async Task<Result> DeleteAsync(int accountId, CancellationToken ct)
         {
-            try
-            {
-                var deleted = await _db.Orders
-                    .Where(x => x.AccountId == accountId && x.Status != Application.Enums.OrderStatus.Submitted)
-                    .ExecuteDeleteAsync(ct);
+            var deleted = await _writePipeline.ExecuteAsync(async token => await _db.Orders
+                .Where(x => x.AccountId == accountId && x.Status != Application.Enums.OrderStatus.Submitted)
+                .ExecuteDeleteAsync(token), ct);
 
-                if (deleted > 0)
-                    return;
+            if (deleted > 0)
+                return Result.Success();
 
-                var exists = await _db.Orders
-                    .AnyAsync(x => x.AccountId == accountId, ct);
+            var exists = await _db.Orders
+                .AnyAsync(x => x.AccountId == accountId, ct);
 
-                if (!exists)
-                    throw new KeyNotFoundException($"Orders was not found for accountId {accountId}.");
+            if (!exists)
+                return Result.Failure(Error.NotFound($"Orders was not found for accountId {accountId}."));
 
-                // Every remaining order for this account is already submitted — nothing deletable, not an error.
-            }
-            catch (DbUpdateException ex)
-            {
-                throw new InvalidOperationException($"Failed to delete orders.", ex);
-            }
+            // Every remaining order for this account is already submitted — nothing deletable, not an error.
+            return Result.Success();
         }
 
-        public async Task ExecuteAsync(int accountId, int id, CancellationToken ct)
+        public async Task<Result> ExecuteAsync(int accountId, int id, CancellationToken ct)
         {
-            try
-            {
-                var entity = await _db.Orders
-                    .FirstOrDefaultAsync(x => x.AccountId == accountId && x.Id == id);
+            var entity = await _db.Orders
+                .FirstOrDefaultAsync(x => x.AccountId == accountId && x.Id == id, ct);
 
-                if (entity is null)
-                    throw new KeyNotFoundException($"OrderId {id} was not found for accountId {accountId}.");
+            if (entity is null)
+                return Result.Failure(Error.NotFound($"OrderId {id} was not found for accountId {accountId}."));
 
-                if (entity.Status == Application.Enums.OrderStatus.Submitted)
-                {
-                    throw new InvalidOperationException($"OrderId {id} is already submitted for accountId {accountId}.");
-                }
-                entity.ExecuteOrder();
+            if (entity.Status == Application.Enums.OrderStatus.Submitted)
+                return Result.Failure(Error.Conflict($"OrderId {id} is already submitted for accountId {accountId}."));
 
-                await _db.SaveChangesAsync(ct);
-            }
-            catch (DbUpdateException ex)
-            {
-                throw new InvalidOperationException($"Failed to execute order {id}.", ex);
-            }
+            entity.ExecuteOrder();
+
+            await _writePipeline.ExecuteAsync(async token => await _db.SaveChangesAsync(token), ct);
+
+            return Result.Success();
         }
 
-        private static void CheckOrderValidity(Application.Entities.Order newOrder)
+        private static Result? ValidateOrder(Application.Entities.Order newOrder)
         {
             if (newOrder.TotalAmount == 0)
-                throw new InvalidDataException("Order to be updated can not have 0 total ammount");
-            else if (newOrder.TotalQuantity == 0)
-                throw new InvalidDataException("Order to be updated can not have 0 total quantity");
-        }
+                return Result.Failure(Error.Validation("Order to be updated can not have 0 total ammount"));
 
+            if (newOrder.TotalQuantity == 0)
+                return Result.Failure(Error.Validation("Order to be updated can not have 0 total quantity"));
+
+            return null;
+        }
     }
 }

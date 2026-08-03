@@ -2,6 +2,7 @@ using AutoFixture;
 using AutoFixture.AutoMoq;
 using FluentAssertions;
 using Moq;
+using VendorGateway.Application.Common;
 using VendorGateway.Application.Dtos;
 using VendorGateway.Application.Enums;
 using VendorGateway.Application.Interfaces.CommandsQueries;
@@ -74,12 +75,12 @@ namespace VendorGateway.Tests.Order
         private void SetupAccountExists(int accountId) =>
             _accountExistenceGuardMock
                 .Setup(g => g.EnsureExistsAsync(accountId, It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
+                .ReturnsAsync(Result.Success());
 
         private void SetupAccountDoesNotExist(int accountId) =>
             _accountExistenceGuardMock
                 .Setup(g => g.EnsureExistsAsync(accountId, It.IsAny<CancellationToken>()))
-                .ThrowsAsync(new KeyNotFoundException($"Account with id {accountId} not found."));
+                .ReturnsAsync(Result.Failure(Error.NotFound($"Account with id {accountId} not found.")));
 
         private void SetupProducts(params Application.Entities.Product[] products) =>
             _productQueriesMock
@@ -113,12 +114,13 @@ namespace VendorGateway.Tests.Order
             _orderCommandsMock
                 .Setup(c => c.CreateAsync(accountId, idempotencyKey, It.IsAny<List<OrderDetails.OrderItem>>(), It.IsAny<CancellationToken>()))
                 .Callback<int, Guid, List<OrderDetails.OrderItem>, CancellationToken>((_, _, items, _) => capturedItems = items)
-                .Returns(Task.CompletedTask);
+                .ReturnsAsync(Result.Success());
 
             using var cts = new CancellationTokenSource();
 
-            await _sut.CreateAsync(accountId, idempotencyKey, request, cts.Token);
+            var result = await _sut.CreateAsync(accountId, idempotencyKey, request, cts.Token);
 
+            result.IsSuccess.Should().BeTrue();
             capturedItems.Should().BeEquivalentTo(new[]
             {
                 new { ProductId = womens.Id, Quantity = 2, UnitPrice = 20f, ItemId = 1 },
@@ -152,7 +154,7 @@ namespace VendorGateway.Tests.Order
             _orderCommandsMock
                 .Setup(c => c.CreateAsync(accountId, idempotencyKey, It.IsAny<List<OrderDetails.OrderItem>>(), It.IsAny<CancellationToken>()))
                 .Callback<int, Guid, List<OrderDetails.OrderItem>, CancellationToken>((_, _, items, _) => capturedItems = items)
-                .Returns(Task.CompletedTask);
+                .ReturnsAsync(Result.Success());
 
             await _sut.CreateAsync(accountId, idempotencyKey, request, CancellationToken.None);
 
@@ -162,16 +164,18 @@ namespace VendorGateway.Tests.Order
         }
 
         [Fact]
-        public async Task CreateAsync_AccountDoesNotExist_ThrowsKeyNotFoundException_AndNeverChecksProductsOrOrders()
+        public async Task CreateAsync_AccountDoesNotExist_ReturnsNotFoundResult_AndNeverChecksProductsOrOrders()
         {
             var accountId = _fixture.Create<int>();
             var request = new OrderRequest.CreateOrder(new List<OrderRequest.OrderItems> { new(1, 1) });
 
             SetupAccountDoesNotExist(accountId);
 
-            var act = () => _sut.CreateAsync(accountId, Guid.NewGuid(), request, CancellationToken.None);
+            var result = await _sut.CreateAsync(accountId, Guid.NewGuid(), request, CancellationToken.None);
 
-            await act.Should().ThrowAsync<KeyNotFoundException>().WithMessage($"*{accountId}*");
+            result.IsFailure.Should().BeTrue();
+            result.Error!.Category.Should().Be(ErrorCategory.NotFound);
+            result.Error.Message.Should().Contain(accountId.ToString());
 
             _productQueriesMock.Verify(q => q.GetByIdsAsync(It.IsAny<IEnumerable<int>>(), It.IsAny<CancellationToken>()), Times.Never);
             _orderQueriesMock.Verify(q => q.GetAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -179,7 +183,7 @@ namespace VendorGateway.Tests.Order
         }
 
         [Fact]
-        public async Task CreateAsync_RequestedProductDoesNotExist_ThrowsKeyNotFoundException_AndNeverChecksOrdersOrCreates()
+        public async Task CreateAsync_RequestedProductDoesNotExist_ReturnsNotFoundResult_AndNeverChecksOrdersOrCreates()
         {
             var accountId = _fixture.Create<int>();
             var request = new OrderRequest.CreateOrder(new List<OrderRequest.OrderItems> { new(999, 1) });
@@ -187,16 +191,18 @@ namespace VendorGateway.Tests.Order
             SetupAccountExists(accountId);
             SetupProducts(); // no products returned -> 999 is missing
 
-            var act = () => _sut.CreateAsync(accountId, Guid.NewGuid(), request, CancellationToken.None);
+            var result = await _sut.CreateAsync(accountId, Guid.NewGuid(), request, CancellationToken.None);
 
-            await act.Should().ThrowAsync<KeyNotFoundException>().WithMessage("*999*");
+            result.IsFailure.Should().BeTrue();
+            result.Error!.Category.Should().Be(ErrorCategory.NotFound);
+            result.Error.Message.Should().Contain("999");
 
             _orderQueriesMock.Verify(q => q.GetAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
             _orderCommandsMock.Verify(c => c.CreateAsync(It.IsAny<int>(), It.IsAny<Guid>(), It.IsAny<List<OrderDetails.OrderItem>>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]
-        public async Task CreateAsync_PendingOrderAlreadyHasOneOfTheProducts_ThrowsInvalidOperationException_AndNeverCreates()
+        public async Task CreateAsync_PendingOrderAlreadyHasOneOfTheProducts_ReturnsConflictResult_AndNeverCreates()
         {
             var accountId = _fixture.Create<int>();
             var product = TestData.Product(10, "electronics", 50f);
@@ -215,9 +221,10 @@ namespace VendorGateway.Tests.Order
                 .Setup(q => q.GetAsync(accountId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync([pendingOrder]);
 
-            var act = () => _sut.CreateAsync(accountId, Guid.NewGuid(), request, CancellationToken.None);
+            var result = await _sut.CreateAsync(accountId, Guid.NewGuid(), request, CancellationToken.None);
 
-            await act.Should().ThrowAsync<InvalidOperationException>();
+            result.IsFailure.Should().BeTrue();
+            result.Error!.Category.Should().Be(ErrorCategory.Conflict);
 
             _orderCommandsMock.Verify(
                 c => c.CreateAsync(It.IsAny<int>(), It.IsAny<Guid>(), It.IsAny<List<OrderDetails.OrderItem>>(), It.IsAny<CancellationToken>()),
@@ -225,7 +232,7 @@ namespace VendorGateway.Tests.Order
         }
 
         [Fact]
-        public async Task CreateAsync_PendingOrderExistsButWithDifferentProduct_DoesNotThrow()
+        public async Task CreateAsync_PendingOrderExistsButWithDifferentProduct_ReturnsSuccessResult()
         {
             var accountId = _fixture.Create<int>();
             var product = TestData.Product(10, "electronics", 50f);
@@ -246,11 +253,11 @@ namespace VendorGateway.Tests.Order
 
             _orderCommandsMock
                 .Setup(c => c.CreateAsync(accountId, It.IsAny<Guid>(), It.IsAny<List<OrderDetails.OrderItem>>(), It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
+                .ReturnsAsync(Result.Success());
 
-            var act = () => _sut.CreateAsync(accountId, Guid.NewGuid(), request, CancellationToken.None);
+            var result = await _sut.CreateAsync(accountId, Guid.NewGuid(), request, CancellationToken.None);
 
-            await act.Should().NotThrowAsync();
+            result.IsSuccess.Should().BeTrue();
         }
     }
 
@@ -280,49 +287,58 @@ namespace VendorGateway.Tests.Order
 
             _accountExistenceGuardMock
                 .Setup(g => g.EnsureExistsAsync(accountId, It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
+                .ReturnsAsync(Result.Success());
+
+            _orderCommandsMock
+                .Setup(c => c.DeleteByIdAsync(accountId, orderId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result.Success());
 
             using var cts = new CancellationTokenSource();
 
-            await _sut.DeleteAsync(accountId, orderId, cts.Token);
+            var result = await _sut.DeleteAsync(accountId, orderId, cts.Token);
 
+            result.IsSuccess.Should().BeTrue();
             _orderCommandsMock.Verify(c => c.DeleteByIdAsync(accountId, orderId, cts.Token), Times.Once);
         }
 
         [Fact]
-        public async Task DeleteAsync_AccountDoesNotExist_ThrowsKeyNotFoundException_AndNeverDeletes()
+        public async Task DeleteAsync_AccountDoesNotExist_ReturnsNotFoundResult_AndNeverDeletes()
         {
             var accountId = _fixture.Create<int>();
             var orderId = _fixture.Create<int>();
 
             _accountExistenceGuardMock
                 .Setup(g => g.EnsureExistsAsync(accountId, It.IsAny<CancellationToken>()))
-                .ThrowsAsync(new KeyNotFoundException($"Account with id {accountId} not found."));
+                .ReturnsAsync(Result.Failure(Error.NotFound($"Account with id {accountId} not found.")));
 
-            var act = () => _sut.DeleteAsync(accountId, orderId, CancellationToken.None);
+            var result = await _sut.DeleteAsync(accountId, orderId, CancellationToken.None);
 
-            await act.Should().ThrowAsync<KeyNotFoundException>().WithMessage($"*{accountId}*");
+            result.IsFailure.Should().BeTrue();
+            result.Error!.Category.Should().Be(ErrorCategory.NotFound);
+            result.Error.Message.Should().Contain(accountId.ToString());
 
             _orderCommandsMock.Verify(c => c.DeleteByIdAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]
-        public async Task DeleteAsync_PropagatesException_WhenOrderCommandsThrows()
+        public async Task DeleteAsync_OrderAlreadySubmitted_ReturnsConflictResultFromOrderCommands()
         {
             var accountId = _fixture.Create<int>();
             var orderId = _fixture.Create<int>();
 
             _accountExistenceGuardMock
                 .Setup(g => g.EnsureExistsAsync(accountId, It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
+                .ReturnsAsync(Result.Success());
 
             _orderCommandsMock
                 .Setup(c => c.DeleteByIdAsync(accountId, orderId, It.IsAny<CancellationToken>()))
-                .ThrowsAsync(new InvalidOperationException("already submitted"));
+                .ReturnsAsync(Result.Failure(Error.Conflict("already submitted")));
 
-            var act = () => _sut.DeleteAsync(accountId, orderId, CancellationToken.None);
+            var result = await _sut.DeleteAsync(accountId, orderId, CancellationToken.None);
 
-            await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("already submitted");
+            result.IsFailure.Should().BeTrue();
+            result.Error!.Category.Should().Be(ErrorCategory.Conflict);
+            result.Error.Message.Should().Be("already submitted");
         }
     }
 
@@ -349,7 +365,7 @@ namespace VendorGateway.Tests.Order
         private void SetupAccountExists(int accountId) =>
             _accountExistenceGuardMock
                 .Setup(g => g.EnsureExistsAsync(accountId, It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
+                .ReturnsAsync(Result.Success());
 
         [Fact]
         public async Task ExecuteAsync_OrderExists_ExecutesUsingOrderAccountAndOrderId()
@@ -363,33 +379,40 @@ namespace VendorGateway.Tests.Order
                 .Setup(q => q.GetByIdsAsync(accountId, new[] { orderId }, It.IsAny<CancellationToken>()))
                 .ReturnsAsync([order]);
 
+            _orderCommandsMock
+                .Setup(c => c.ExecuteAsync(order.AccountId, order.Id, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result.Success());
+
             using var cts = new CancellationTokenSource();
 
-            await _sut.ExecuteAsync(accountId, orderId, cts.Token);
+            var result = await _sut.ExecuteAsync(accountId, orderId, cts.Token);
 
+            result.IsSuccess.Should().BeTrue();
             _orderCommandsMock.Verify(c => c.ExecuteAsync(order.AccountId, order.Id, cts.Token), Times.Once);
         }
 
         [Fact]
-        public async Task ExecuteAsync_AccountDoesNotExist_ThrowsKeyNotFoundException_AndNeverQueriesOrders()
+        public async Task ExecuteAsync_AccountDoesNotExist_ReturnsNotFoundResult_AndNeverQueriesOrders()
         {
             var accountId = _fixture.Create<int>();
             var orderId = _fixture.Create<int>();
 
             _accountExistenceGuardMock
                 .Setup(g => g.EnsureExistsAsync(accountId, It.IsAny<CancellationToken>()))
-                .ThrowsAsync(new KeyNotFoundException($"Account with id {accountId} not found."));
+                .ReturnsAsync(Result.Failure(Error.NotFound($"Account with id {accountId} not found.")));
 
-            var act = () => _sut.ExecuteAsync(accountId, orderId, CancellationToken.None);
+            var result = await _sut.ExecuteAsync(accountId, orderId, CancellationToken.None);
 
-            await act.Should().ThrowAsync<KeyNotFoundException>().WithMessage($"*{accountId}*");
+            result.IsFailure.Should().BeTrue();
+            result.Error!.Category.Should().Be(ErrorCategory.NotFound);
+            result.Error.Message.Should().Contain(accountId.ToString());
 
             _orderQueriesMock.Verify(q => q.GetByIdsAsync(It.IsAny<int>(), It.IsAny<IEnumerable<int>>(), It.IsAny<CancellationToken>()), Times.Never);
             _orderCommandsMock.Verify(c => c.ExecuteAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]
-        public async Task ExecuteAsync_OrderDoesNotExist_ThrowsKeyNotFoundException_AndNeverExecutes()
+        public async Task ExecuteAsync_OrderDoesNotExist_ReturnsNotFoundResult_AndNeverExecutes()
         {
             var accountId = _fixture.Create<int>();
             var orderId = _fixture.Create<int>();
@@ -399,19 +422,23 @@ namespace VendorGateway.Tests.Order
                 .Setup(q => q.GetByIdsAsync(accountId, new[] { orderId }, It.IsAny<CancellationToken>()))
                 .ReturnsAsync([]);
 
-            var act = () => _sut.ExecuteAsync(accountId, orderId, CancellationToken.None);
+            var result = await _sut.ExecuteAsync(accountId, orderId, CancellationToken.None);
 
-            await act.Should().ThrowAsync<KeyNotFoundException>().WithMessage($"*{orderId}*");
+            result.IsFailure.Should().BeTrue();
+            result.Error!.Category.Should().Be(ErrorCategory.NotFound);
+            result.Error.Message.Should().Contain(orderId.ToString());
 
             _orderCommandsMock.Verify(c => c.ExecuteAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
         // NOTE: this documents the ACTUAL current behavior rather than the intended
-        // "is not unique" KeyNotFoundException path. Because the code only reaches
+        // "is not unique" NotFound-result path. Because the code only reaches
         // IsUniqueOrder() after results.SingleOrDefault(), a query returning more
         // than one matching order throws .NET's native InvalidOperationException
         // ("Sequence contains more than one element") before the custom check ever
         // runs — meaning that custom check is effectively dead code as written.
+        // This is a genuinely unexpected failure (not an anticipated domain outcome),
+        // so it still propagates as an exception rather than a Result.
         [Fact]
         public async Task ExecuteAsync_QueryReturnsMoreThanOneOrder_ThrowsInvalidOperationException_FromSingleOrDefault()
         {
@@ -457,7 +484,7 @@ namespace VendorGateway.Tests.Order
         private void SetupAccountExists(int accountId) =>
             _accountExistenceGuardMock
                 .Setup(g => g.EnsureExistsAsync(accountId, It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
+                .ReturnsAsync(Result.Success());
 
         [Fact]
         public async Task GetAsync_OrderExists_ReturnsIt()
@@ -475,29 +502,32 @@ namespace VendorGateway.Tests.Order
 
             var result = await _sut.GetAsync(accountId, orderId, cts.Token);
 
-            result.Should().BeSameAs(order);
+            result.IsSuccess.Should().BeTrue();
+            result.Value.Should().BeSameAs(order);
             _orderQueriesMock.Verify(q => q.GetByIdsAsync(accountId, new[] { orderId }, cts.Token), Times.Once);
         }
 
         [Fact]
-        public async Task GetAsync_AccountDoesNotExist_ThrowsKeyNotFoundException_AndNeverQueriesOrders()
+        public async Task GetAsync_AccountDoesNotExist_ReturnsNotFoundResult_AndNeverQueriesOrders()
         {
             var accountId = _fixture.Create<int>();
             var orderId = _fixture.Create<int>();
 
             _accountExistenceGuardMock
                 .Setup(g => g.EnsureExistsAsync(accountId, It.IsAny<CancellationToken>()))
-                .ThrowsAsync(new KeyNotFoundException($"Account with id {accountId} not found."));
+                .ReturnsAsync(Result.Failure(Error.NotFound($"Account with id {accountId} not found.")));
 
-            var act = () => _sut.GetAsync(accountId, orderId, CancellationToken.None);
+            var result = await _sut.GetAsync(accountId, orderId, CancellationToken.None);
 
-            await act.Should().ThrowAsync<KeyNotFoundException>().WithMessage($"*{accountId}*");
+            result.IsFailure.Should().BeTrue();
+            result.Error!.Category.Should().Be(ErrorCategory.NotFound);
+            result.Error.Message.Should().Contain(accountId.ToString());
 
             _orderQueriesMock.Verify(q => q.GetByIdsAsync(It.IsAny<int>(), It.IsAny<IEnumerable<int>>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]
-        public async Task GetAsync_OrderDoesNotExist_ThrowsKeyNotFoundException()
+        public async Task GetAsync_OrderDoesNotExist_ReturnsNotFoundResult()
         {
             var accountId = _fixture.Create<int>();
             var orderId = _fixture.Create<int>();
@@ -507,9 +537,11 @@ namespace VendorGateway.Tests.Order
                 .Setup(q => q.GetByIdsAsync(accountId, new[] { orderId }, It.IsAny<CancellationToken>()))
                 .ReturnsAsync([]);
 
-            var act = () => _sut.GetAsync(accountId, orderId, CancellationToken.None);
+            var result = await _sut.GetAsync(accountId, orderId, CancellationToken.None);
 
-            await act.Should().ThrowAsync<KeyNotFoundException>().WithMessage($"*{orderId}*");
+            result.IsFailure.Should().BeTrue();
+            result.Error!.Category.Should().Be(ErrorCategory.NotFound);
+            result.Error.Message.Should().Contain(orderId.ToString());
         }
     }
 
@@ -542,7 +574,7 @@ namespace VendorGateway.Tests.Order
         private void SetupAccountExists(int accountId) =>
             _accountExistenceGuardMock
                 .Setup(g => g.EnsureExistsAsync(accountId, It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
+                .ReturnsAsync(Result.Success());
 
         private void SetupProducts(params Application.Entities.Product[] products) =>
             _productQueriesMock
@@ -576,10 +608,15 @@ namespace VendorGateway.Tests.Order
             SetupProducts(womens, jewelery);
             SetupOrder(accountId, orderId, order);
 
+            _orderCommandsMock
+                .Setup(c => c.UpdateAsync(accountId, order, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result.Success());
+
             using var cts = new CancellationTokenSource();
 
-            await _sut.UpdateAsync(accountId, orderId, request, cts.Token);
+            var result = await _sut.UpdateAsync(accountId, orderId, request, cts.Token);
 
+            result.IsSuccess.Should().BeTrue();
             existingItem1.Quantity.Should().Be(5);
             existingItem1.UnitPrice.Should().Be(20f); // not jewelery -> price untouched
 
@@ -611,13 +648,17 @@ namespace VendorGateway.Tests.Order
             SetupProducts(womens, jewelery);
             SetupOrder(accountId, orderId, order);
 
+            _orderCommandsMock
+                .Setup(c => c.UpdateAsync(accountId, order, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result.Success());
+
             await _sut.UpdateAsync(accountId, orderId, request, CancellationToken.None);
 
             existingItem.UnitPrice.Should().Be(100f); // unchanged
         }
 
         [Fact]
-        public async Task UpdateAsync_AccountDoesNotExist_ThrowsKeyNotFoundException_AndNeverChecksProductsOrOrder()
+        public async Task UpdateAsync_AccountDoesNotExist_ReturnsNotFoundResult_AndNeverChecksProductsOrOrder()
         {
             var accountId = _fixture.Create<int>();
             var orderId = _fixture.Create<int>();
@@ -625,18 +666,20 @@ namespace VendorGateway.Tests.Order
 
             _accountExistenceGuardMock
                 .Setup(g => g.EnsureExistsAsync(accountId, It.IsAny<CancellationToken>()))
-                .ThrowsAsync(new KeyNotFoundException($"Account with id {accountId} not found."));
+                .ReturnsAsync(Result.Failure(Error.NotFound($"Account with id {accountId} not found.")));
 
-            var act = () => _sut.UpdateAsync(accountId, orderId, request, CancellationToken.None);
+            var result = await _sut.UpdateAsync(accountId, orderId, request, CancellationToken.None);
 
-            await act.Should().ThrowAsync<KeyNotFoundException>().WithMessage($"*{accountId}*");
+            result.IsFailure.Should().BeTrue();
+            result.Error!.Category.Should().Be(ErrorCategory.NotFound);
+            result.Error.Message.Should().Contain(accountId.ToString());
 
             _productQueriesMock.Verify(q => q.GetByIdsAsync(It.IsAny<IEnumerable<int>>(), It.IsAny<CancellationToken>()), Times.Never);
             _orderQueriesMock.Verify(q => q.GetByIdsAsync(It.IsAny<int>(), It.IsAny<IEnumerable<int>>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]
-        public async Task UpdateAsync_RequestedProductDoesNotExist_ThrowsKeyNotFoundException_AndNeverQueriesOrder()
+        public async Task UpdateAsync_RequestedProductDoesNotExist_ReturnsNotFoundResult_AndNeverQueriesOrder()
         {
             var accountId = _fixture.Create<int>();
             var orderId = _fixture.Create<int>();
@@ -645,16 +688,18 @@ namespace VendorGateway.Tests.Order
             SetupAccountExists(accountId);
             SetupProducts(); // 999 missing
 
-            var act = () => _sut.UpdateAsync(accountId, orderId, request, CancellationToken.None);
+            var result = await _sut.UpdateAsync(accountId, orderId, request, CancellationToken.None);
 
-            await act.Should().ThrowAsync<KeyNotFoundException>().WithMessage("*999*");
+            result.IsFailure.Should().BeTrue();
+            result.Error!.Category.Should().Be(ErrorCategory.NotFound);
+            result.Error.Message.Should().Contain("999");
 
             _orderQueriesMock.Verify(q => q.GetByIdsAsync(It.IsAny<int>(), It.IsAny<IEnumerable<int>>(), It.IsAny<CancellationToken>()), Times.Never);
             _orderCommandsMock.Verify(c => c.UpdateAsync(It.IsAny<int>(), It.IsAny<OrderDetails.Order>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]
-        public async Task UpdateAsync_OrderDoesNotExist_ThrowsKeyNotFoundException()
+        public async Task UpdateAsync_OrderDoesNotExist_ReturnsNotFoundResult()
         {
             var accountId = _fixture.Create<int>();
             var orderId = _fixture.Create<int>();
@@ -667,15 +712,17 @@ namespace VendorGateway.Tests.Order
                 .Setup(q => q.GetByIdsAsync(accountId, new[] { orderId }, It.IsAny<CancellationToken>()))
                 .ReturnsAsync([]);
 
-            var act = () => _sut.UpdateAsync(accountId, orderId, request, CancellationToken.None);
+            var result = await _sut.UpdateAsync(accountId, orderId, request, CancellationToken.None);
 
-            await act.Should().ThrowAsync<KeyNotFoundException>().WithMessage($"*{orderId}*");
+            result.IsFailure.Should().BeTrue();
+            result.Error!.Category.Should().Be(ErrorCategory.NotFound);
+            result.Error.Message.Should().Contain(orderId.ToString());
 
             _orderCommandsMock.Verify(c => c.UpdateAsync(It.IsAny<int>(), It.IsAny<OrderDetails.Order>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]
-        public async Task UpdateAsync_OrderAlreadySubmitted_ThrowsInvalidOperationException_AndNeverUpdates()
+        public async Task UpdateAsync_OrderAlreadySubmitted_ReturnsConflictResult_AndNeverUpdates()
         {
             var accountId = _fixture.Create<int>();
             var orderId = _fixture.Create<int>();
@@ -689,9 +736,11 @@ namespace VendorGateway.Tests.Order
             SetupProducts(product);
             SetupOrder(accountId, orderId, submittedOrder);
 
-            var act = () => _sut.UpdateAsync(accountId, orderId, request, CancellationToken.None);
+            var result = await _sut.UpdateAsync(accountId, orderId, request, CancellationToken.None);
 
-            await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*executed*");
+            result.IsFailure.Should().BeTrue();
+            result.Error!.Category.Should().Be(ErrorCategory.Conflict);
+            result.Error.Message.Should().Contain("executed");
 
             _orderCommandsMock.Verify(c => c.UpdateAsync(It.IsAny<int>(), It.IsAny<OrderDetails.Order>(), It.IsAny<CancellationToken>()), Times.Never);
         }

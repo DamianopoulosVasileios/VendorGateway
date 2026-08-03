@@ -1,4 +1,5 @@
-﻿using VendorGateway.Application.Dtos;
+using VendorGateway.Application.Common;
+using VendorGateway.Application.Dtos;
 using VendorGateway.Application.Interfaces.CommandsQueries;
 using VendorGateway.Application.Interfaces.Services;
 
@@ -6,29 +7,30 @@ namespace VendorGateway.Application.Services.Order
 {
     public class GetOrderService(IAccountExistenceGuard accountExistenceGuard, IOrderQueries orderQueries) : IGetOrderService
     {
-        public async Task<OrderDetails.Order> GetAsync(int accountId, int id, CancellationToken ct)
+        public async Task<Result<OrderDetails.Order>> GetAsync(int accountId, int id, CancellationToken ct)
         {
-            await accountExistenceGuard.EnsureExistsAsync(accountId, ct);
+            var guard = await accountExistenceGuard.EnsureExistsAsync(accountId, ct);
+            if (guard.IsFailure)
+                return guard.AsFailure<OrderDetails.Order>();
 
-            var order = await GetUniqueOrder(accountId, id, ct);
-            return order;
+            return await GetUniqueOrder(accountId, id, ct);
         }
 
-        private async Task<OrderDetails.Order> GetUniqueOrder(int accountId, int id, CancellationToken ct)
+        private async Task<Result<OrderDetails.Order>> GetUniqueOrder(int accountId, int id, CancellationToken ct)
         {
             var results = await orderQueries.GetByIdsAsync(accountId, [id], ct);
             if (results == null || results.Count == 0)
             {
-                throw new KeyNotFoundException($"Order with id {id} not found for account {accountId}");
+                return Result.Failure<OrderDetails.Order>(Error.NotFound($"Order with id {id} not found for account {accountId}"));
             }
 
             var order = results.SingleOrDefault();
             if (!IsUniqueOrder(order))
             {
-                throw new KeyNotFoundException($"Order with id {id} is not unique for account {accountId}");
+                return Result.Failure<OrderDetails.Order>(Error.NotFound($"Order with id {id} is not unique for account {accountId}"));
             }
 
-            return order!;
+            return Result.Success(order!);
         }
 
         private static bool IsUniqueOrder(OrderDetails.Order? order)

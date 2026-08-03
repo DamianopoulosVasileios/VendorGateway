@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using VendorGateway.Application.Diagnostics;
 using VendorGateway.Application.Interfaces;
 using VendorGateway.Application.Interfaces.CommandsQueries;
 using VendorGateway.Application.Interfaces.Services;
@@ -39,6 +40,7 @@ namespace VendorGateway.Application.DependencyInjection
             services.AddHostedService<FailedJobProcessingBackgroundService>();
             services.AddHostedService<SyncProductsFromVendorBackgroundService>();
 
+            services.AddSingleton<VendorGatewayMetrics>();
 
             return services;
         }
