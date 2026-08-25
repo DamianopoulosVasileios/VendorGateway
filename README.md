@@ -2,7 +2,7 @@
 
 ## Overview
 
-VendorGateway is a **Clean Architecture** solution with an API proejct that acts as a gateway between external clients and one or more third-party vendor systems (currently FakeStore). It exposes a REST API for managing Accounts, Orders, and Products, synchronizes data with the vendor, and persists its own local copy of that data.
+VendorGateway is a **Clean Architecture** solution with an API project that acts as a gateway between external clients and one or more third-party vendor systems (currently FakeStore). It exposes a REST API for managing Accounts, Orders, and Products, synchronizes data with the vendor, and persists its own local copy of that data.
 
 The system is organized into four projects, each with a single, clearly bounded responsibility:
 
