@@ -46,15 +46,22 @@ Every action follows the same shape, regardless of whether it targets an Account
    - `Apis/FakeStore{Domain}ApiClient.cs` — HTTP calls to the vendor, translated via `Mappers/ApiAndFakeStoreAccountMappers.cs` (and equivalents) between the vendor's wire format and the Application layer's DTOs.
 5. The service returns a result (or throws a domain exception — `KeyNotFoundException`, `InvalidOperationException`, etc.) back up to the controller, which maps it to an `Api*Response` and an appropriate HTTP status code.
 
-**Example — creating an Account:**
+**Example — registering and provisioning an Account:**
+
+Registration and account creation are one flow, not two: signing up creates both your login credentials and your vendor-linked Account under the same id, so there's no separate "create account" call.
 
 ```
-POST /accounts
-  → AccountsController.CreateAccount(ApiCreateAccountRequest)
-    → ICreateAccountService.CreateAsync(CreateAccountRequest, ct)
-      → IAccountsApiClient.CreateAsync(...)   [Infrastructure: calls FakeStore]
-      → IAccountCommands.CreateAsync(...)     [Infrastructure: persists locally via EF Core]
-  ← 202 Accepted
+POST /api/Auth/register { username, password, email }
+  → AuthController.RegisterAsync(RegisterUserRequest)
+    → AuthService.RegisterAsync(...)
+      → IAuthorizationCommands.RegisterUserAsync(...)   [Infrastructure: persists the User/credentials]
+      → IJobCommands.CreateAsync(CreateAccount job)     [queues vendor-linked Account provisioning]
+  ← 201 Created
+
+# asynchronously, via JobProcessingBackgroundService:
+  → ICreateAccountService.CreateAsync(CreateAccountRequest, id, ct)
+    → IAccountsApiClient.CreateAsync(...)   [Infrastructure: calls FakeStore]
+    → IAccountCommands.CreateAsync(...)     [Infrastructure: persists locally via EF Core]
 ```
 
 Each use case gets its own service and interface (`ICreateAccountService`, `IUpdateOrderService`, `IExecuteOrderService`, etc.) rather than a single generic "AccountService" — this keeps each class focused on one action's rules and makes them independently testable.

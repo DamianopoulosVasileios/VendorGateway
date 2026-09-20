@@ -1,11 +1,13 @@
-﻿using AutoFixture;
+using AutoFixture;
 using AutoFixture.AutoMoq;
 using FluentAssertions;
 using Moq;
 using System.Net;
+using VendorGateway.Application.Common;
 using VendorGateway.Application.Dtos;
 using VendorGateway.Application.Interfaces.ApiClient;
 using VendorGateway.Application.Interfaces.CommandsQueries;
+using VendorGateway.Application.Interfaces.Services;
 using VendorGateway.Application.Services.Account;
 
 namespace VendorGateway.Tests.Account
@@ -31,36 +33,44 @@ namespace VendorGateway.Tests.Account
         [Fact]
         public async Task CreateAsync_VendorReturnsValidId_PersistsAccountLocally()
         {
-            var request = new CreateAccountRequest(_fixture.Create<int>() is var id && id != 0 ? id : 1, _fixture.Create<string>());
-            var vendorResponse = new CreateAccountVendorResponse(request.id, request.email);
+            var id = _fixture.Create<int>();
+            var request = _fixture.Create<CreateAccountRequest>();
+            var vendorResponse = new CreateAccountVendorResponse(id, request.email);
 
             _apiClientMock
-                .Setup(c => c.CreateAsync(request, It.IsAny<CancellationToken>()))
+                .Setup(c => c.CreateAsync(request, id, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(vendorResponse);
+
+            _accountCommandsMock
+                .Setup(c => c.CreateAsync(id, request.email, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result.Success());
 
             using var cts = new CancellationTokenSource();
 
-            await _sut.CreateAsync(request, cts.Token);
+            var result = await _sut.CreateAsync(request, id, cts.Token);
 
+            result.IsSuccess.Should().BeTrue();
             _accountCommandsMock.Verify(
-                c => c.CreateAsync(request.id, request.email, cts.Token),
+                c => c.CreateAsync(id, request.email, cts.Token),
                 Times.Once);
         }
 
         [Fact]
-        public async Task CreateAsync_VendorReturnsIdZero_ThrowsInvalidOperationException_AndNeverPersistsLocally()
+        public async Task CreateAsync_VendorReturnsIdZero_ReturnsConflictResult_AndNeverPersistsLocally()
         {
+            var id = _fixture.Create<int>();
             var request = _fixture.Create<CreateAccountRequest>();
             var vendorResponse = new CreateAccountVendorResponse(0, request.email);
 
             _apiClientMock
-                .Setup(c => c.CreateAsync(request, It.IsAny<CancellationToken>()))
+                .Setup(c => c.CreateAsync(request, id, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(vendorResponse);
 
-            var act = () => _sut.CreateAsync(request, CancellationToken.None);
+            var result = await _sut.CreateAsync(request, id, CancellationToken.None);
 
-            await act.Should().ThrowAsync<InvalidOperationException>()
-                .WithMessage($"*{request.id}*");
+            result.IsFailure.Should().BeTrue();
+            result.Error!.Category.Should().Be(ErrorCategory.Conflict);
+            result.Error.Message.Should().Contain(id.ToString());
 
             _accountCommandsMock.Verify(
                 c => c.CreateAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
@@ -70,13 +80,14 @@ namespace VendorGateway.Tests.Account
         [Fact]
         public async Task CreateAsync_PropagatesException_WhenVendorApiThrows()
         {
+            var id = _fixture.Create<int>();
             var request = _fixture.Create<CreateAccountRequest>();
 
             _apiClientMock
-                .Setup(c => c.CreateAsync(request, It.IsAny<CancellationToken>()))
+                .Setup(c => c.CreateAsync(request, id, It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new HttpRequestException("vendor unreachable"));
 
-            var act = () => _sut.CreateAsync(request, CancellationToken.None);
+            var act = () => _sut.CreateAsync(request, id, CancellationToken.None);
 
             await act.Should().ThrowAsync<HttpRequestException>();
 
@@ -93,7 +104,7 @@ namespace VendorGateway.Tests.Account
     {
         private readonly IFixture _fixture;
         private readonly Mock<IAccountsApiClient> _apiClientMock;
-        private readonly Mock<IAccountQueries> _accountQueriesMock;
+        private readonly Mock<IAccountExistenceGuard> _accountExistenceGuardMock;
         private readonly Mock<IAccountCommands> _accountCommandsMock;
         private readonly DeleteAccountService _sut;
 
@@ -101,47 +112,52 @@ namespace VendorGateway.Tests.Account
         {
             _fixture = new Fixture().Customize(new AutoMoqCustomization());
             _apiClientMock = _fixture.Freeze<Mock<IAccountsApiClient>>();
-            _accountQueriesMock = _fixture.Freeze<Mock<IAccountQueries>>();
+            _accountExistenceGuardMock = _fixture.Freeze<Mock<IAccountExistenceGuard>>();
             _accountCommandsMock = _fixture.Freeze<Mock<IAccountCommands>>();
-            _sut = new DeleteAccountService(_apiClientMock.Object, _accountQueriesMock.Object, _accountCommandsMock.Object);
+            _sut = new DeleteAccountService(_apiClientMock.Object, _accountExistenceGuardMock.Object, _accountCommandsMock.Object);
         }
 
         [Fact]
         public async Task DeleteAsync_AccountExistsAndVendorDeleteSucceeds_DeletesLocally()
         {
             var id = _fixture.Create<int>();
-            var existingAccounts = new List<Application.Entities.Account> { new() { Id = id } };
             var okResponse = new HttpResponseMessage(HttpStatusCode.OK);
 
-            _accountQueriesMock
-                .Setup(q => q.GetByIdsAsync(new[] { id }, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(existingAccounts);
+            _accountExistenceGuardMock
+                .Setup(g => g.EnsureExistsAsync(id, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result.Success());
 
             _apiClientMock
                 .Setup(c => c.DeleteAsync(id, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(okResponse);
 
+            _accountCommandsMock
+                .Setup(c => c.DeleteAsync(id, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result.Success());
+
             using var cts = new CancellationTokenSource();
 
-            await _sut.DeleteAsync(id, cts.Token);
+            var result = await _sut.DeleteAsync(id, cts.Token);
 
+            result.IsSuccess.Should().BeTrue();
             _apiClientMock.Verify(c => c.DeleteAsync(id, cts.Token), Times.Once);
             _accountCommandsMock.Verify(c => c.DeleteAsync(id, cts.Token), Times.Once);
         }
 
         [Fact]
-        public async Task DeleteAsync_AccountDoesNotExist_ThrowsKeyNotFoundException_AndNeverCallsVendorOrDeletesLocally()
+        public async Task DeleteAsync_AccountDoesNotExist_ReturnsNotFoundResult_AndNeverCallsVendorOrDeletesLocally()
         {
             var id = _fixture.Create<int>();
 
-            _accountQueriesMock
-                .Setup(q => q.GetByIdsAsync(new[] { id }, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(Array.Empty<Application.Entities.Account>());
+            _accountExistenceGuardMock
+                .Setup(g => g.EnsureExistsAsync(id, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result.Failure(Error.NotFound($"Account with id {id} not found.")));
 
-            var act = () => _sut.DeleteAsync(id, CancellationToken.None);
+            var result = await _sut.DeleteAsync(id, CancellationToken.None);
 
-            await act.Should().ThrowAsync<KeyNotFoundException>()
-                .WithMessage($"*{id}*");
+            result.IsFailure.Should().BeTrue();
+            result.Error!.Category.Should().Be(ErrorCategory.NotFound);
+            result.Error.Message.Should().Contain(id.ToString());
 
             _apiClientMock.Verify(
                 c => c.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()),
@@ -152,24 +168,24 @@ namespace VendorGateway.Tests.Account
         }
 
         [Fact]
-        public async Task DeleteAsync_VendorDeleteReturnsNonOkStatus_ThrowsInvalidDataException_AndNeverDeletesLocally()
+        public async Task DeleteAsync_VendorDeleteReturnsNonOkStatus_ReturnsValidationResult_AndNeverDeletesLocally()
         {
             var id = _fixture.Create<int>();
-            var existingAccounts = new List<Application.Entities.Account> { new() { Id = id } };
             var failedResponse = new HttpResponseMessage(HttpStatusCode.InternalServerError);
 
-            _accountQueriesMock
-                .Setup(q => q.GetByIdsAsync(new[] { id }, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(existingAccounts);
+            _accountExistenceGuardMock
+                .Setup(g => g.EnsureExistsAsync(id, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result.Success());
 
             _apiClientMock
                 .Setup(c => c.DeleteAsync(id, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(failedResponse);
 
-            var act = () => _sut.DeleteAsync(id, CancellationToken.None);
+            var result = await _sut.DeleteAsync(id, CancellationToken.None);
 
-            await act.Should().ThrowAsync<InvalidDataException>()
-                .WithMessage($"*{id}*");
+            result.IsFailure.Should().BeTrue();
+            result.Error!.Category.Should().Be(ErrorCategory.Validation);
+            result.Error.Message.Should().Contain(id.ToString());
 
             _accountCommandsMock.Verify(
                 c => c.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()),
@@ -207,12 +223,13 @@ namespace VendorGateway.Tests.Account
 
             var result = await _sut.GetAsync(id, cts.Token);
 
-            result.Should().BeSameAs(expected);
+            result.IsSuccess.Should().BeTrue();
+            result.Value.Should().BeSameAs(expected);
             _accountQueriesMock.Verify(q => q.GetByIdsAsync(new[] { id }, cts.Token), Times.Once);
         }
 
         [Fact]
-        public async Task GetAsync_AccountDoesNotExist_ThrowsKeyNotFoundException()
+        public async Task GetAsync_AccountDoesNotExist_ReturnsNotFoundResult()
         {
             var id = _fixture.Create<int>();
 
@@ -220,14 +237,15 @@ namespace VendorGateway.Tests.Account
                 .Setup(q => q.GetByIdsAsync(new[] { id }, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Array.Empty<Application.Entities.Account>());
 
-            var act = () => _sut.GetAsync(id, CancellationToken.None);
+            var result = await _sut.GetAsync(id, CancellationToken.None);
 
-            await act.Should().ThrowAsync<KeyNotFoundException>()
-                .WithMessage($"*{id}*");
+            result.IsFailure.Should().BeTrue();
+            result.Error!.Category.Should().Be(ErrorCategory.NotFound);
+            result.Error.Message.Should().Contain(id.ToString());
         }
 
         [Fact]
-        public async Task GetAsync_QueryReturnsNull_ThrowsKeyNotFoundException()
+        public async Task GetAsync_QueryReturnsNull_ReturnsNotFoundResult()
         {
             var id = _fixture.Create<int>();
 
@@ -235,10 +253,11 @@ namespace VendorGateway.Tests.Account
                 .Setup(q => q.GetByIdsAsync(new[] { id }, It.IsAny<CancellationToken>()))
                 .ReturnsAsync((IReadOnlyList<Application.Entities.Account>)null!);
 
-            var act = () => _sut.GetAsync(id, CancellationToken.None);
+            var result = await _sut.GetAsync(id, CancellationToken.None);
 
-            await act.Should().ThrowAsync<KeyNotFoundException>()
-                .WithMessage($"*{id}*");
+            result.IsFailure.Should().BeTrue();
+            result.Error!.Category.Should().Be(ErrorCategory.NotFound);
+            result.Error.Message.Should().Contain(id.ToString());
         }
     }
 
@@ -248,7 +267,7 @@ namespace VendorGateway.Tests.Account
     public class UpdateAccountServiceTests
     {
         private readonly IFixture _fixture;
-        private readonly Mock<IAccountQueries> _accountQueriesMock;
+        private readonly Mock<IAccountExistenceGuard> _accountExistenceGuardMock;
         private readonly Mock<IAccountsApiClient> _apiClientMock;
         private readonly Mock<IAccountCommands> _accountCommandsMock;
         private readonly UpdateAccountService _sut;
@@ -256,136 +275,112 @@ namespace VendorGateway.Tests.Account
         public UpdateAccountServiceTests()
         {
             _fixture = new Fixture().Customize(new AutoMoqCustomization());
-            _accountQueriesMock = _fixture.Freeze<Mock<IAccountQueries>>();
+            _accountExistenceGuardMock = _fixture.Freeze<Mock<IAccountExistenceGuard>>();
             _apiClientMock = _fixture.Freeze<Mock<IAccountsApiClient>>();
             _accountCommandsMock = _fixture.Freeze<Mock<IAccountCommands>>();
-            _sut = new UpdateAccountService(_accountQueriesMock.Object, _apiClientMock.Object, _accountCommandsMock.Object);
+            _sut = new UpdateAccountService(_accountExistenceGuardMock.Object, _apiClientMock.Object, _accountCommandsMock.Object);
         }
 
         [Fact]
         public async Task UpdateAsync_HappyPath_UpdatesVendorThenPersistsLocally()
         {
             var id = _fixture.Create<int>();
-            var request = new UpdateAccountRequest(id);
-            var existingAccount = new Application.Entities.Account { Id = id };
+            var request = new UpdateAccountRequest(_fixture.Create<string>());
             var vendorResponse = new UpdateAccountVendorResponse(id);
 
-            // Called twice: once for the existence check, once after the vendor update.
-            _accountQueriesMock
-                .Setup(q => q.GetByIdsAsync(new[] { id }, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new List<Application.Entities.Account> { existingAccount });
+            _accountExistenceGuardMock
+                .Setup(g => g.EnsureExistsAsync(id, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result.Success());
 
             _apiClientMock
                 .Setup(c => c.UpdateAsync(request, id, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(vendorResponse);
 
+            _accountCommandsMock
+                .Setup(c => c.UpdateAsync(id, request.email, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result.Success());
+
             using var cts = new CancellationTokenSource();
 
-            await _sut.UpdateAsync(request, id, cts.Token);
+            var result = await _sut.UpdateAsync(request, id, cts.Token);
 
-            _accountQueriesMock.Verify(
-                q => q.GetByIdsAsync(new[] { id }, cts.Token),
-                Times.Exactly(2));
+            result.IsSuccess.Should().BeTrue();
+            _accountExistenceGuardMock.Verify(
+                g => g.EnsureExistsAsync(id, cts.Token),
+                Times.Once);
             _apiClientMock.Verify(c => c.UpdateAsync(request, id, cts.Token), Times.Once);
-            _accountCommandsMock.Verify(c => c.UpdateAsync(existingAccount, cts.Token), Times.Once);
+            _accountCommandsMock.Verify(c => c.UpdateAsync(id, request.email, cts.Token), Times.Once);
         }
 
         [Fact]
-        public async Task UpdateAsync_AccountDoesNotExistInitially_ThrowsKeyNotFoundException_AndNeverCallsVendor()
+        public async Task UpdateAsync_AccountDoesNotExistInitially_ReturnsNotFoundResult_AndNeverCallsVendor()
         {
             var id = _fixture.Create<int>();
-            var request = new UpdateAccountRequest(id);
+            var request = new UpdateAccountRequest(_fixture.Create<string>());
 
-            _accountQueriesMock
-                .Setup(q => q.GetByIdsAsync(new[] { id }, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(Array.Empty<Application.Entities.Account>());
+            _accountExistenceGuardMock
+                .Setup(g => g.EnsureExistsAsync(id, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result.Failure(Error.NotFound($"Account with id {id} not found.")));
 
-            var act = () => _sut.UpdateAsync(request, id, CancellationToken.None);
+            var result = await _sut.UpdateAsync(request, id, CancellationToken.None);
 
-            await act.Should().ThrowAsync<KeyNotFoundException>()
-                .WithMessage($"*{id}*");
+            result.IsFailure.Should().BeTrue();
+            result.Error!.Category.Should().Be(ErrorCategory.NotFound);
+            result.Error.Message.Should().Contain(id.ToString());
 
             _apiClientMock.Verify(
                 c => c.UpdateAsync(It.IsAny<UpdateAccountRequest>(), It.IsAny<int>(), It.IsAny<CancellationToken>()),
                 Times.Never);
             _accountCommandsMock.Verify(
-                c => c.UpdateAsync(It.IsAny<Application.Entities.Account>(), It.IsAny<CancellationToken>()),
+                c => c.UpdateAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
                 Times.Never);
         }
 
         [Fact]
-        public async Task UpdateAsync_VendorUpdateReturnsIdZero_ThrowsInvalidOperationException_AndNeverPersistsLocally()
+        public async Task UpdateAsync_VendorUpdateReturnsIdZero_ReturnsConflictResult_AndNeverPersistsLocally()
         {
             var id = _fixture.Create<int>();
-            var request = new UpdateAccountRequest(id);
-            var existingAccount = new Application.Entities.Account { Id = id };
+            var request = new UpdateAccountRequest(_fixture.Create<string>());
 
-            _accountQueriesMock
-                .Setup(q => q.GetByIdsAsync(new[] { id }, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new List<Application.Entities.Account> { existingAccount });
+            _accountExistenceGuardMock
+                .Setup(g => g.EnsureExistsAsync(id, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result.Success());
 
             _apiClientMock
                 .Setup(c => c.UpdateAsync(request, id, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new UpdateAccountVendorResponse(0));
 
-            var act = () => _sut.UpdateAsync(request, id, CancellationToken.None);
+            var result = await _sut.UpdateAsync(request, id, CancellationToken.None);
 
-            await act.Should().ThrowAsync<InvalidOperationException>();
+            result.IsFailure.Should().BeTrue();
+            result.Error!.Category.Should().Be(ErrorCategory.Conflict);
 
             _accountCommandsMock.Verify(
-                c => c.UpdateAsync(It.IsAny<Application.Entities.Account>(), It.IsAny<CancellationToken>()),
+                c => c.UpdateAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
                 Times.Never);
         }
 
         [Fact]
-        public async Task UpdateAsync_VendorUpdateReturnsNull_ThrowsInvalidOperationException_AndNeverPersistsLocally()
+        public async Task UpdateAsync_VendorUpdateReturnsNull_ReturnsConflictResult_AndNeverPersistsLocally()
         {
             var id = _fixture.Create<int>();
-            var request = new UpdateAccountRequest(id);
-            var existingAccount = new Application.Entities.Account { Id = id };
+            var request = new UpdateAccountRequest(_fixture.Create<string>());
 
-            _accountQueriesMock
-                .Setup(q => q.GetByIdsAsync(new[] { id }, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new List<Application.Entities.Account> { existingAccount });
+            _accountExistenceGuardMock
+                .Setup(g => g.EnsureExistsAsync(id, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Result.Success());
 
             _apiClientMock
                 .Setup(c => c.UpdateAsync(request, id, It.IsAny<CancellationToken>()))
                 .ReturnsAsync((UpdateAccountVendorResponse)null!);
 
-            var act = () => _sut.UpdateAsync(request, id, CancellationToken.None);
+            var result = await _sut.UpdateAsync(request, id, CancellationToken.None);
 
-            await act.Should().ThrowAsync<InvalidOperationException>();
-
-            _accountCommandsMock.Verify(
-                c => c.UpdateAsync(It.IsAny<Application.Entities.Account>(), It.IsAny<CancellationToken>()),
-                Times.Never);
-        }
-
-        [Fact]
-        public async Task UpdateAsync_AccountNotFoundAfterVendorUpdate_ThrowsKeyNotFoundException()
-        {
-            var id = _fixture.Create<int>();
-            var request = new UpdateAccountRequest(id);
-            var existingAccount = new Application.Entities.Account { Id = id };
-            var vendorResponse = new UpdateAccountVendorResponse(id);
-
-            // First call (existence check) succeeds; second call (post-update re-fetch) returns empty.
-            _accountQueriesMock
-                .SetupSequence(q => q.GetByIdsAsync(new[] { id }, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new List<Application.Entities.Account> { existingAccount })
-                .ReturnsAsync(Array.Empty<Application.Entities.Account>());
-
-            _apiClientMock
-                .Setup(c => c.UpdateAsync(request, id, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(vendorResponse);
-
-            var act = () => _sut.UpdateAsync(request, id, CancellationToken.None);
-
-            await act.Should().ThrowAsync<KeyNotFoundException>()
-                .WithMessage("*not found after update*");
+            result.IsFailure.Should().BeTrue();
+            result.Error!.Category.Should().Be(ErrorCategory.Conflict);
 
             _accountCommandsMock.Verify(
-                c => c.UpdateAsync(It.IsAny<Application.Entities.Account>(), It.IsAny<CancellationToken>()),
+                c => c.UpdateAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
                 Times.Never);
         }
     }

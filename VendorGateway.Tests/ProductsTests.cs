@@ -1,4 +1,4 @@
-﻿using AutoFixture;
+using AutoFixture;
 using AutoFixture.AutoMoq;
 using FluentAssertions;
 using Moq;
@@ -41,7 +41,7 @@ namespace VendorGateway.Tests.Product
             $"https://example.com/{id}.png");
 
         [Fact]
-        public async Task CreateAsync_AddRangeSucceeds_ReturnsTrue_AndPersistsCorrectlyMappedProducts()
+        public async Task CreateAsync_AddRangeSucceeds_ReturnsSuccessResultWithTrueValue_AndPersistsCorrectlyMappedProducts()
         {
             var vendorProducts = new List<GetProductsResponse> { VendorProduct(1), VendorProduct(2) };
 
@@ -59,7 +59,8 @@ namespace VendorGateway.Tests.Product
 
             var result = await _sut.UpdateAsync(cts.Token);
 
-            result.Should().BeTrue();
+            result.IsSuccess.Should().BeTrue();
+            result.Value.Should().BeTrue();
 
             var expectedMapped = ProductMappers.Map(vendorProducts);
             capturedProducts.Should().BeEquivalentTo(expectedMapped);
@@ -70,7 +71,7 @@ namespace VendorGateway.Tests.Product
         }
 
         [Fact]
-        public async Task CreateAsync_AddRangeReturnsFalse_ReturnsFalse()
+        public async Task CreateAsync_AddRangeReturnsFalse_ReturnsSuccessResultWithFalseValue()
         {
             _apiClientMock
                 .Setup(c => c.GetAllAsync(It.IsAny<CancellationToken>()))
@@ -82,7 +83,8 @@ namespace VendorGateway.Tests.Product
 
             var result = await _sut.UpdateAsync(CancellationToken.None);
 
-            result.Should().BeFalse();
+            result.IsSuccess.Should().BeTrue();
+            result.Value.Should().BeFalse();
         }
 
 
@@ -115,7 +117,8 @@ namespace VendorGateway.Tests.Product
 
             var result = await _sut.UpdateAsync(CancellationToken.None);
 
-            result.Should().BeTrue();
+            result.IsSuccess.Should().BeTrue();
+            result.Value.Should().BeTrue();
             _productCommandsMock.Verify(
                 c => c.UpdateRangeAsync(It.Is<IEnumerable<Application.Entities.Product>>(p => !p.Any()), It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -143,8 +146,9 @@ namespace VendorGateway.Tests.Product
         {
             using var cts = new CancellationTokenSource();
 
-            await _sut.DeleteAsync(cts.Token);
+            var result = await _sut.DeleteAsync(cts.Token);
 
+            result.IsSuccess.Should().BeTrue();
             _productCommandsMock.Verify(c => c.DeleteAsync(cts.Token), Times.Once);
         }
 
@@ -190,7 +194,8 @@ namespace VendorGateway.Tests.Product
 
             var result = await _sut.GetAsync(cts.Token);
 
-            result.Should().BeSameAs(expected);
+            result.IsSuccess.Should().BeTrue();
+            result.Value.Should().BeSameAs(expected);
             _productQueriesMock.Verify(q => q.GetAsync(cts.Token), Times.Once);
         }
 

@@ -1,6 +1,9 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using System.Text.Json;
 using VendorGateway.API.Contracts.Order.Requests;
+using VendorGateway.API.Extensions;
 using VendorGateway.API.Filters;
 using VendorGateway.API.Mappers;
 using VendorGateway.Application.Interfaces.CommandsQueries;
@@ -11,96 +14,93 @@ using static VendorGateway.Application.Jobs.DTOs.AsynchronousAPI;
 
 namespace VendorGateway.API.Controllers.Order
 {
+    [Authorize(Policy = "ExistingUser")]
     [ApiController]
     [Route("api/[controller]")]
     public class OrdersController(IJobCommands jobCommands) : ControllerBase
     {
-        [HttpGet("{id:int}")]
-        public async Task<IActionResult> GetOrder([FromServices] IGetOrderService service, int accountId, int id, CancellationToken ct)
+        private int AccountId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        [HttpGet("{orderId:int}")]
+        public async Task<IActionResult> GetOrder([FromServices] IGetOrderService service, int orderId, CancellationToken ct)
         {
-            var order = await service.GetAsync(accountId, id, ct);
-            var mappedResult = order.ToApiResponse();
-            return Ok(mappedResult);
+            var result = await service.GetAsync(AccountId, orderId, ct);
+            return result.ToActionResult(order => order.ToApiResponse());
         }
 
         [HttpPost]
         [RequireIdempotencyKey]
         public async Task<IActionResult> CreateOrder(
-            [FromServices] ICreateOrderService service,
             [FromHeader(Name = "Idempotency-Key")] Guid idempotencyKey,
             ApiCreateOrderRequest request,
             CancellationToken ct)
         {
             var mappedOrder = request.ToDto();
-            var payload = new CreateOrderJobPayload(idempotencyKey, mappedOrder with { AccountId = request.AccountId });
+            var payload = new CreateOrderJobPayload(AccountId, idempotencyKey, mappedOrder);
             var job = new Job { Type = JobType.CreateOrder, Payload = JsonSerializer.Serialize(payload) };
 
             await jobCommands.CreateAsync(job, ct);
             return Accepted();
-
-            //var mappedOrder = request.ToDto();
-            //await service.CreateAsync(idempotencyKey, mappedOrder, ct);
-            //return Ok();
         }
 
-        [HttpPut("{id:int}")]
-        public async Task<IActionResult> UpdateOrder([FromServices] IUpdateOrderService service, int accountId, int id, ApiUpdateOrderRequest request, CancellationToken ct)
+        [HttpPut("{orderId:int}")]
+        public async Task<IActionResult> UpdateOrder([FromServices] IUpdateOrderService service, int orderId, ApiUpdateOrderRequest request, CancellationToken ct)
         {
             var mappedOrder = request.ToDto();
-            await service.UpdateAsync(accountId, id, mappedOrder, ct);
-            return Ok();
+            var result = await service.UpdateAsync(AccountId, orderId, mappedOrder, ct);
+            return result.ToActionResult();
         }
 
-        [HttpDelete("{id:int}")]
-        public async Task<IActionResult> DeleteByIdOrder([FromServices] IDeleteOrderService service, int accountId, int id, CancellationToken ct)
+        [HttpDelete("{orderId:int}")]
+        public async Task<IActionResult> DeleteByIdOrder([FromServices] IDeleteOrderService service, int orderId, CancellationToken ct)
         {
-            await service.DeleteAsync(accountId, id, ct);
-            return Ok();
+            var result = await service.DeleteAsync(AccountId, orderId, ct);
+            return result.ToActionResult();
         }
 
-        [HttpPost("execute/{id:int}")]
-        public async Task<IActionResult> ExecuteOrder([FromServices] IExecuteOrderService service, int accountId, int id, CancellationToken ct)
+        [HttpPost("execute/{orderId:int}")]
+        public async Task<IActionResult> ExecuteOrder([FromServices] IExecuteOrderService service, int orderId, CancellationToken ct)
         {
-            await service.ExecuteAsync(accountId, id, ct);
-            return Ok();
+            var result = await service.ExecuteAsync(AccountId, orderId, ct);
+            return result.ToActionResult();
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetOrders([FromServices] IOrderQueries orderQueries, [FromServices] IAccountQueries accountQueries, int accountId, CancellationToken ct)
+        public async Task<IActionResult> GetOrders([FromServices] IOrderQueries orderQueries, [FromServices] IAccountExistenceGuard accountExistenceGuard, CancellationToken ct)
         {
-            await CheckAccountExists(accountQueries, accountId, ct);
+            var guard = await accountExistenceGuard.EnsureExistsAsync(AccountId, ct);
+            if (guard.IsFailure)
+                return guard.ToActionResult();
 
-            var orders = await orderQueries.GetAsync(accountId, ct);
+            var orders = await orderQueries.GetAsync(AccountId, ct);
             var mappedResponse = orders.Select(x => x.ToApiResponse()).ToList();
             return Ok(mappedResponse);
         }
 
         [HttpDelete]
-        public async Task<IActionResult> DeleteOrders([FromServices] IOrderCommands orderCommands, [FromServices] IAccountQueries accountQueries, int accountId, CancellationToken ct)
+        public async Task<IActionResult> DeleteOrders([FromServices] IOrderCommands orderCommands, [FromServices] IAccountExistenceGuard accountExistenceGuard, CancellationToken ct)
         {
-            await CheckAccountExists(accountQueries, accountId, ct);
+            var guard = await accountExistenceGuard.EnsureExistsAsync(AccountId, ct);
+            if (guard.IsFailure)
+                return guard.ToActionResult();
 
-            await orderCommands.DeleteAsync(accountId, ct);
-            return Ok();
+            var result = await orderCommands.DeleteAsync(AccountId, ct);
+            return result.ToActionResult();
         }
-        [HttpGet("orderItems")]
-        public async Task<IActionResult> GetOrderItems([FromServices] IOrderQueries orderQueries, [FromServices] IAccountQueries accountQueries, int accountId, CancellationToken ct)
-        {
-            await CheckAccountExists(accountQueries, accountId, ct);
 
-            var orders = await orderQueries.GetAsync(accountId, ct);
+        [HttpGet("orderItems")]
+        public async Task<IActionResult> GetOrderItems([FromServices] IOrderQueries orderQueries, [FromServices] IAccountExistenceGuard accountExistenceGuard, CancellationToken ct)
+        {
+            var guard = await accountExistenceGuard.EnsureExistsAsync(AccountId, ct);
+            if (guard.IsFailure)
+                return guard.ToActionResult();
+
+            var orders = await orderQueries.GetAsync(AccountId, ct);
             var orderIds = orders.Select(x => x.Id);
 
             var orderItems = await orderQueries.GetOrderItemsAsync(orderIds, ct);
             var mappedResponse = orderItems.Select(x => x.ToApiResponse()).ToList();
             return Ok(mappedResponse);
-        }
-
-        private static async Task CheckAccountExists(IAccountQueries accountQueries, int accountId, CancellationToken ct)
-        {
-            var account = await accountQueries.GetByIdsAsync([accountId], ct);
-            if (account == null || account.Count == 0)
-                throw new KeyNotFoundException($"Account with id {accountId} not found.");
         }
     }
 }

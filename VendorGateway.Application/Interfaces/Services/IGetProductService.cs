@@ -1,7 +1,9 @@
-﻿namespace VendorGateway.Application.Interfaces.Services
+using VendorGateway.Application.Common;
+
+namespace VendorGateway.Application.Interfaces.Services
 {
     public interface IGetProductService
     {
-        Task<List<Entities.Product>> GetAsync(CancellationToken ct);
+        Task<Result<List<Entities.Product>>> GetAsync(CancellationToken ct);
     }
 }

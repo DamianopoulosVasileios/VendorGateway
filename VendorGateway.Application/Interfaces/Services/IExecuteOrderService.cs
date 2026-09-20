@@ -1,7 +1,9 @@
-﻿namespace VendorGateway.Application.Interfaces.Services
+using VendorGateway.Application.Common;
+
+namespace VendorGateway.Application.Interfaces.Services
 {
     public interface IExecuteOrderService
     {
-        Task ExecuteAsync(int accountId, int id, CancellationToken ct);
+        Task<Result> ExecuteAsync(int accountId, int id, CancellationToken ct);
     }
 }

@@ -1,7 +1,9 @@
-﻿namespace VendorGateway.Application.Interfaces.Services
+using VendorGateway.Application.Common;
+
+namespace VendorGateway.Application.Interfaces.Services
 {
     public interface IDeleteAccountService
     {
-        Task DeleteAsync(int id, CancellationToken ct);
+        Task<Result> DeleteAsync(int id, CancellationToken ct);
     }
 }

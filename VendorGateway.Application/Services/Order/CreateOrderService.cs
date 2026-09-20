@@ -1,19 +1,28 @@
-﻿using VendorGateway.Application.Dtos;
+using VendorGateway.Application.Common;
+using VendorGateway.Application.Dtos;
 using VendorGateway.Application.Enums;
 using VendorGateway.Application.Interfaces.CommandsQueries;
 using VendorGateway.Application.Interfaces.Services;
 
 namespace VendorGateway.Application.Services.Order
 {
-    public class CreateOrderService(IAccountQueries accountQueries, IProductQueries productQueries, IOrderQueries orderQueries, IOrderCommands orderCommands) : ICreateOrderService
+    public class CreateOrderService(IAccountExistenceGuard accountExistenceGuard, IProductQueries productQueries, IOrderQueries orderQueries, IOrderCommands orderCommands) : ICreateOrderService
     {
-        public async Task CreateAsync(Guid idempotencyKey, OrderRequest.CreateOrder request, CancellationToken ct)
+        public async Task<Result> CreateAsync(int accountId, Guid idempotencyKey, OrderRequest.CreateOrder request, CancellationToken ct)
         {
-            await CheckAccountExists(request.AccountId, ct);
+            var guard = await accountExistenceGuard.EnsureExistsAsync(accountId, ct);
+            if (guard.IsFailure)
+                return guard;
 
-            var productByIds = await CheckIfRequestProductsExist(request, ct);
+            var productsResult = await CheckIfRequestProductsExist(request, ct);
+            if (productsResult.IsFailure)
+                return productsResult;
 
-            await CheckIfOrderProductExistsInAnotherOrderWithStatusPending(request, productByIds, ct);
+            var productByIds = productsResult.Value;
+
+            var pendingOrderCheck = await CheckIfOrderProductExistsInAnotherOrderWithStatusPending(accountId, productByIds, ct);
+            if (pendingOrderCheck.IsFailure)
+                return pendingOrderCheck;
 
             var productsWithCategoryIdApplicableToPotentialDiscount = productByIds.Values
                 .Where(p => p.Category.Equals("women's clothing", StringComparison.OrdinalIgnoreCase))
@@ -27,8 +36,7 @@ namespace VendorGateway.Application.Services.Order
             var orderItems = request.Items
                 .Select((item, index) =>
                 {
-                    if (!productByIds.TryGetValue(item.ProductId, out var product))
-                        throw new KeyNotFoundException($"Product {item.ProductId} not found");
+                    var product = productByIds[item.ProductId];
 
                     var unitPrice = product.Price;
 
@@ -48,17 +56,10 @@ namespace VendorGateway.Application.Services.Order
                 })
                 .ToList();
 
-            await orderCommands.CreateAsync(request.AccountId, idempotencyKey, orderItems, ct);
+            return await orderCommands.CreateAsync(accountId, idempotencyKey, orderItems, ct);
         }
 
-        private async Task CheckAccountExists(int accountId, CancellationToken ct)
-        {
-            var account = await accountQueries.GetByIdsAsync([accountId], ct);
-            if (account == null || account.Count == 0)
-                throw new KeyNotFoundException($"Account with id {accountId} not found.");
-        }
-
-        private async Task<Dictionary<int, Entities.Product>> CheckIfRequestProductsExist(OrderRequest.CreateOrder request, CancellationToken ct)
+        private async Task<Result<Dictionary<int, Entities.Product>>> CheckIfRequestProductsExist(OrderRequest.CreateOrder request, CancellationToken ct)
         {
             var products = await productQueries.GetByIdsAsync(request.Items.Select(x => x.ProductId), ct);
             var productsById = products.ToDictionary(p => p.Id);
@@ -69,21 +70,24 @@ namespace VendorGateway.Application.Services.Order
                 .ToList();
 
             if (missingProductIds.Count > 0)
-                throw new KeyNotFoundException($"The following product ids were not found: {string.Join(", ", missingProductIds)}.");
+                return Result.Failure<Dictionary<int, Entities.Product>>(
+                    Error.NotFound($"The following product ids were not found: {string.Join(", ", missingProductIds)}."));
 
-            return productsById;
+            return Result.Success(productsById);
         }
 
-        private async Task CheckIfOrderProductExistsInAnotherOrderWithStatusPending(OrderRequest.CreateOrder request, Dictionary<int, Entities.Product> productByIds, CancellationToken ct)
+        private async Task<Result> CheckIfOrderProductExistsInAnotherOrderWithStatusPending(int accountId, Dictionary<int, Entities.Product> productByIds, CancellationToken ct)
         {
-            var orders = await orderQueries.GetAsync(request.AccountId, ct);
+            var orders = await orderQueries.GetAsync(accountId, ct);
 
             var existingOrder = orders.Any(order =>
                 order.Status == OrderStatus.Pending &&
                 order.Items.Any(item => productByIds.ContainsKey(item.ProductId)));
 
             if (existingOrder)
-                throw new InvalidOperationException("Cannot create a new order if you already have a pending order with at least one of the given product ids");
+                return Result.Failure(Error.Conflict("Cannot create a new order if you already have a pending order with at least one of the given product ids"));
+
+            return Result.Success();
         }
     }
 }

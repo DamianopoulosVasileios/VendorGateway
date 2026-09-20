@@ -1,23 +1,19 @@
-﻿using VendorGateway.Application.Interfaces.CommandsQueries;
+using VendorGateway.Application.Common;
+using VendorGateway.Application.Interfaces.CommandsQueries;
 using VendorGateway.Application.Interfaces.Services;
 
 
 namespace VendorGateway.Application.Services.Order
 {
-    public class DeleteOrderService(IAccountQueries accountQueries, IOrderCommands orderCommands) : IDeleteOrderService
+    public class DeleteOrderService(IAccountExistenceGuard accountExistenceGuard, IOrderCommands orderCommands) : IDeleteOrderService
     {
-        public async Task DeleteAsync(int accountId, int id, CancellationToken ct)
+        public async Task<Result> DeleteAsync(int accountId, int id, CancellationToken ct)
         {
-            await CheckAccountExists(accountId, ct);
+            var guard = await accountExistenceGuard.EnsureExistsAsync(accountId, ct);
+            if (guard.IsFailure)
+                return guard;
 
-            await orderCommands.DeleteByIdAsync(accountId, id, ct);
-        }
-
-        private async Task CheckAccountExists(int accountId, CancellationToken ct)
-        {
-            var account = await accountQueries.GetByIdsAsync([accountId], ct);
-            if (account == null || account.Count == 0)
-                throw new KeyNotFoundException($"Account with id {accountId} not found.");
+            return await orderCommands.DeleteByIdAsync(accountId, id, ct);
         }
     }
 }

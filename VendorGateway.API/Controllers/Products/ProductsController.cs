@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
+using VendorGateway.API.Extensions;
 using VendorGateway.API.Mappers;
 using VendorGateway.Application.Interfaces.Services;
 
@@ -11,23 +12,22 @@ namespace VendorGateway.API.Controllers.Products
         [HttpGet]
         public async Task<IActionResult> GetProducts([FromServices] IGetProductService service, CancellationToken ct)
         {
-            var products = await service.GetAsync(ct);
-            var mappedResponse = products.Select(p => p.ToApiResponse()).ToList();
-            return Ok(mappedResponse);
+            var result = await service.GetAsync(ct);
+            return result.ToActionResult(products => products.Select(p => p.ToApiResponse()).ToList());
         }
 
         [HttpDelete]
         public async Task<IActionResult> DeleteProducts([FromServices] IDeleteProductService service, CancellationToken ct)
         {
-            await service.DeleteAsync(ct);
-            return Ok();
+            var result = await service.DeleteAsync(ct);
+            return result.ToActionResult();
         }
 
         [HttpPost]
         public async Task<IActionResult> CreateProducts([FromServices] ICreateProductService service, CancellationToken ct)
         {
             var result = await service.UpdateAsync(ct);
-            return Ok(result);
+            return result.ToActionResult();
         }
     }
 }
